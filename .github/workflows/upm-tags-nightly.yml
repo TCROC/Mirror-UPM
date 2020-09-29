@@ -32,6 +32,7 @@ jobs:
         theirTags=$(git tag)
         echo "Their tags: $theirTags"
         cd "$GITHUB_WORKSPACE/myRepo"
+        cp -rf "$GITHUB_WORKSPACE/myRepo/PackageTemplate" "$GITHUB_WORKSPACE"
         myTags=$(git tag)
         echo "My tags: $myTags"
         for theirTag in $theirTags
@@ -71,7 +72,10 @@ jobs:
           git checkout -B $UPM_BRANCH
           sudo rm -rf !('.git'|'.gitattributes'|'.gitignore') || true
           sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$PKG_ROOT"/* "$GITHUB_WORKSPACE/myRepo/"
-          version=$(jq -r .version package.json)
+          sudo cp -rf "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo"
+          package=$(cat package.json)
+          newPackage=$(jq '.version = "$theirTag"' <<<"$package")
+          cat "$newPackage" > package.json
           git add -A
           git commit -m "Format for upm"
           upmSHA1=$(git rev-parse $UPM_BRANCH)
