@@ -1,0 +1,9 @@
+{
+  "name": "com.vis2k.mirror",
+  "displayName": "Mirror",
+  "version": "0.0.1",
+  "author": "vis2k",
+  "url": "https://github.com/vis2k/Mirror",
+  "type": "tool",
+  "hideInEditor": false
+}
