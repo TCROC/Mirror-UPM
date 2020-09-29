@@ -15,6 +15,6 @@ This repo runs nightly and formats Mirror releases for UPM.  The Mirror repo can
     https://github.com/TCROC/Mirror-UPM.git#[insert tag here]
     ```
     - Example:
-    ```
-    https://github.com/TCROC/Mirror-UPM.git#v19.1.2
-    ```
+      ```
+      https://github.com/TCROC/Mirror-UPM.git#v19.1.2
+      ```
