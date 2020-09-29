@@ -91,7 +91,7 @@ jobs:
           newPackage=$(jq '.version = "$theirTag"' <<<"$package")
           echo "$newPackage" > package.json
           git add -A
-          git commit -m "Format for upm"
+          git commit -m "Format for upm" || true
           upmSHA1=$(git rev-parse $UPM_BRANCH)
           git tag -a $theirTag -m "UPM - Release $version" $upmSHA1
           git push -u origin $UPM_BRANCH --follow-tags -f
