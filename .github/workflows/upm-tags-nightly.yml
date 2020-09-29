@@ -89,7 +89,7 @@ jobs:
           sudo cp -a "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo/"
           package=$(cat package.json)
           newPackage=$(jq '.version = "$theirTag"' <<<"$package")
-          cat "$newPackage" > package.json
+          echo "$newPackage" > package.json
           git add -A
           git commit -m "Format for upm"
           upmSHA1=$(git rev-parse $UPM_BRANCH)
