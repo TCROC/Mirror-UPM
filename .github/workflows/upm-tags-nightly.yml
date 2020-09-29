@@ -43,7 +43,7 @@ jobs:
             continue
           fi
           doContinue=false
-          or requiredPrefix in $REQUIRED_PREFIXES
+          for requiredPrefix in $REQUIRED_PREFIXES
           do
             if [[ "$requiredPrefix" != "" && "$theirTag" != "$requiredPrefix"* ]]; then
               echo "their tag $theirTag is missing required prefix $requiredSubstring. Skipping"
