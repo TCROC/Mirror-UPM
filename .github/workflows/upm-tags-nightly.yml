@@ -29,7 +29,7 @@ jobs:
         sudo apt-get -y update
         sudo apt-get -y install jq
         cd "$GITHUB_WORKSPACE/theirRepo"
-        theirTags=$(git tag)
+        theirTags=$(git tag --sort=committerdate)
         echo "Their tags: $theirTags"
         cd "$GITHUB_WORKSPACE/myRepo"
         sudo mkdir "$GITHUB_WORKSPACE/PackageTemplate"
