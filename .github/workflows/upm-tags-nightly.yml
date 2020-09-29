@@ -38,10 +38,6 @@ jobs:
         echo "My tags: $myTags"
         for theirTag in $theirTags
         do
-          if [[ "$myTags" == *"$theirTag"* ]]; then
-            echo "Already released tag: $theirTag. Skipping"
-            continue
-          fi
           doContinue=false
           for requiredPrefix in $REQUIRED_PREFIXES
           do
@@ -76,6 +72,11 @@ jobs:
           if $doContinue; then
             continue
           fi
+          tagToVersion="${theirTag//[!0-9-.]/}"
+          if [[ "$myTags" == *"$tagToVersion"* ]]; then
+            echo "Already released tag: $tagToVersion. Skipping"
+            continue
+          fi
           echo "Creating upm release for tag $theirTag"
           cd "$GITHUB_WORKSPACE/theirRepo"
           git reset --hard
@@ -97,14 +98,14 @@ jobs:
           done
           sudo cp -a "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo/"
           package=$(cat package.json)
-          newPackage=$(jq --arg newVersion "$theirTag" '.version = $newVersion' <<<"$package")
+          newPackage=$(jq --arg newVersion "$tagToVersion" '.version = $newVersion' <<<"$package")
           echo "$newPackage" > package.json
           git add -A
           git commit -m "Format for upm" || true
           upmSHA1=$(git rev-parse $UPM_BRANCH)
-          git tag -a $theirTag -m "UPM - Release $version" $upmSHA1
+          git tag -a $tagToVersion -m "UPM - Release $version" $upmSHA1
           git push -u origin $UPM_BRANCH --follow-tags -f
-          echo "Created upm release for tag $theirTag"
+          echo "Created upm release for tag $tagToVersion"
         done
       env:
         UPM_FILES: "LICENSE README.md CONTRIBUTING.md"
