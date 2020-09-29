@@ -85,7 +85,10 @@ jobs:
           echo "Listing their repo"
           ls "$GITHUB_WORKSPACE/theirRepo"
           sudo rm -rf !('.git'|'.gitattributes'|'.gitignore') || true
-          sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$PKG_ROOT"/* "$GITHUB_WORKSPACE/myRepo/"
+          for upmFile in $UPM_FILES
+          do
+            sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmFile" "$GITHUB_WORKSPACE/myRepo/"
+          done
           sudo cp -a "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo/"
           package=$(cat package.json)
           newPackage=$(jq --arg newVersion "$theirTag" '.version = $newVersion' <<<"$package")
@@ -98,7 +101,7 @@ jobs:
           echo "Created upm release for tag $theirTag"
         done
       env:
-        PKG_ROOT: Assets/Mirror
+        UPM_FILES: "Assets/Mirror/* LICENSE README.md CONTRIBUTING.md"
         UPM_BRANCH: releases/upm
         REQUIRED_PREFIXES: "v"
         REQUIRED_SUBSTRINGS: ""
