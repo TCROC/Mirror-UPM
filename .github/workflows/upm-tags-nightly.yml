@@ -43,6 +43,17 @@ jobs:
             continue
           fi
           doContinue=false
+          or requiredPrefix in $REQUIRED_PREFIXES
+          do
+            if [[ "$requiredPrefix" != "" && "$theirTag" != "$requiredPrefix"* ]]; then
+              echo "their tag $theirTag is missing required prefix $requiredSubstring. Skipping"
+              doContinue=true
+              break
+            fi
+          done
+          if $doContinue; then
+            continue
+          fi
           for requiredSubstring in $REQUIRED_SUBSTRINGS
           do
             if [[ "$requiredSubstring" != "" && "$theirTag" != *"$requiredSubstring"* ]]; then
@@ -75,7 +86,6 @@ jobs:
           ls "$GITHUB_WORKSPACE/theirRepo"
           sudo rm -rf !('.git'|'.gitattributes'|'.gitignore') || true
           sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$PKG_ROOT"/* "$GITHUB_WORKSPACE/myRepo/"
-          sudo cp -rf "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo"
           package=$(cat package.json)
           newPackage=$(jq '.version = "$theirTag"' <<<"$package")
           cat "$newPackage" > package.json
@@ -89,6 +99,7 @@ jobs:
       env:
         PKG_ROOT: Assets/Mirror
         UPM_BRANCH: releases/upm
+        REQUIRED_PREFIXES: "v"
         REQUIRED_SUBSTRINGS: ""
         EXCLUDED_SUBSTRINGS: ""
       shell: bash
