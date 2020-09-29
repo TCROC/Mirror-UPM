@@ -32,7 +32,8 @@ jobs:
         theirTags=$(git tag)
         echo "Their tags: $theirTags"
         cd "$GITHUB_WORKSPACE/myRepo"
-        cp -rf "$GITHUB_WORKSPACE/myRepo/PackageTemplate" "$GITHUB_WORKSPACE"
+        sudo mkdir "$GITHUB_WORKSPACE/PackageTemplate"
+        cp -rf "$GITHUB_WORKSPACE/myRepo/PackageTemplate/." "$GITHUB_WORKSPACE/PackageTemplate"
         myTags=$(git tag)
         echo "My tags: $myTags"
         for theirTag in $theirTags
@@ -70,6 +71,7 @@ jobs:
           git checkout tags/$theirTag
           cd "$GITHUB_WORKSPACE/myRepo"
           git checkout -B $UPM_BRANCH
+          echo "Listing their repo"
           ls "$GITHUB_WORKSPACE/theirRepo"
           sudo rm -rf !('.git'|'.gitattributes'|'.gitignore') || true
           sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$PKG_ROOT"/* "$GITHUB_WORKSPACE/myRepo/"
