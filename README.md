@@ -18,3 +18,10 @@ This repo runs nightly and formats Mirror releases for UPM.  The Mirror repo can
       ```
       https://github.com/TCROC/Mirror-UPM.git#v19.1.2
       ```
+# Reporting Issues
+
+If you find any issues please open up an issue so it can be fixed :)
+
+# Contributing
+
+If you want to contribute, just fork this repo and create a PR to the dev branch when you are happy with your changes.
