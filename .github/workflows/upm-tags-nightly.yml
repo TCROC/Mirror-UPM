@@ -32,8 +32,8 @@ jobs:
         theirTags=$(git tag --sort=committerdate)
         echo "Their tags: $theirTags"
         cd "$GITHUB_WORKSPACE/myRepo"
-        sudo mkdir "$GITHUB_WORKSPACE/PackageTemplate"
-        sudo cp -a "$GITHUB_WORKSPACE/myRepo/PackageTemplate/." "$GITHUB_WORKSPACE/PackageTemplate"
+        sudo mkdir "$GITHUB_WORKSPACE/UPM-Files"
+        sudo cp -a "$GITHUB_WORKSPACE/myRepo/UPM-Files/." "$GITHUB_WORKSPACE/UPM-Files"
         myTags=$(git tag)
         echo "My tags: $myTags"
         for theirTag in $theirTags
@@ -96,7 +96,7 @@ jobs:
             echo "Moving file at path $GITHUB_WORKSPACE/theirRepo/$upmFile"
             sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmParentFolder"/* "$GITHUB_WORKSPACE/myRepo/"
           done
-          sudo cp -a "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo/"
+          sudo cp -a "$GITHUB_WORKSPACE/UPM-Files/." "$GITHUB_WORKSPACE/myRepo/"
           package=$(cat package.json)
           newPackage=$(jq --arg newVersion "$tagToVersion" '.version = $newVersion' <<<"$package")
           echo "$newPackage" > package.json
