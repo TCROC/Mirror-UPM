@@ -1,0 +1,87 @@
+name: UPM-Tags-Nightly
+on:
+  workflow_dispatch:
+  # schedule:
+  # - cron: "0 0 * * *"
+
+jobs:
+  format-upm:
+    name: Format UPM
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        path: myRepo
+
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        path: theirRepo
+        repository: vis2k/Mirror
+
+    - name: Format and push to UPM branch
+      run: |
+        shopt -s extglob
+        git config --global user.email "github-workflow-agent@github.com"
+        git config --global user.name "GitHub Workflow Agent"
+        sudo apt-get -y update
+        sudo apt-get -y install jq
+        cd "$GITHUB_WORKSPACE/theirRepo"
+        theirTags=$(git tag)
+        echo "Their tags: $theirTags"
+        cd "$GITHUB_WORKSPACE/myRepo"
+        myTags=$(git tag)
+        echo "My tags: $myTags"
+        for theirTag in $theirTags
+        do
+          if [[ "$myTags" == *"$theirTag"* ]]; then
+            echo "Already released tag: $theirTag. Skipping"
+            continue
+          fi
+          doContinue=false
+          for requiredSubstring in $REQUIRED_SUBSTRINGS
+          do
+            if [[ "$requiredSubstring" != "" && "$theirTag" != *"$requiredSubstring"* ]]; then
+              echo "their tag $theirTag is missing required subtring $requiredSubstring. Skipping"
+              doContinue=true
+              break
+            fi
+          done
+          if $doContinue; then
+            continue
+          fi
+          for excludedSubstring in $EXCLUDED_SUBSTRINGS
+          do
+            if [[ "$excludedSubstring" != "" && "$theirTag" == *"$excludedSubstring"* ]]; then
+              echo $"their tag $theirTag contains excluded subtring $excludedSubstring. Skipping."
+              doContinue=true
+              break
+            fi
+          done
+          if $doContinue; then
+            continue
+          fi
+          echo "Creating upm release for tag $theirTag"
+          cd "$GITHUB_WORKSPACE/theirRepo"
+          git reset --hard
+          git checkout tags/$theirTag
+          cd "$GITHUB_WORKSPACE/myRepo"
+          git checkout -B $UPM_BRANCH
+          sudo rm -rf !('.git'|'.gitattributes'|'.gitignore') || true
+          sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$PKG_ROOT"/* "$GITHUB_WORKSPACE/myRepo/"
+          version=$(jq -r .version package.json)
+          git add -A
+          git commit -m "Format for upm"
+          upmSHA1=$(git rev-parse $UPM_BRANCH)
+          git tag -a $theirTag -m "UPM - Release $version" $upmSHA1
+          git push -u origin $UPM_BRANCH --follow-tags -f
+          echo "Created upm release for tag $theirTag"
+        done
+      env:
+        PKG_ROOT: Assets/Mirror
+        UPM_BRANCH: releases/upm
+        REQUIRED_SUBSTRINGS: ""
+        EXCLUDED_SUBSTRINGS: ""
+      shell: bash
