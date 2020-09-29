@@ -87,6 +87,7 @@ jobs:
           sudo rm -rf !('.git'|'.gitattributes'|'.gitignore') || true
           for upmFile in $UPM_FILES
           do
+            echo "Moving file at path $GITHUB_WORKSPACE/theirRepo/$upmFile"
             sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmFile" "$GITHUB_WORKSPACE/myRepo/"
           done
           sudo cp -a "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo/"
