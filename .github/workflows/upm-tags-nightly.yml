@@ -90,6 +90,11 @@ jobs:
             echo "Moving file at path $GITHUB_WORKSPACE/theirRepo/$upmFile"
             sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmFile" "$GITHUB_WORKSPACE/myRepo/"
           done
+          for upmParentFolder in $UPM_FOLDER_CONTENTS
+          do
+            echo "Moving file at path $GITHUB_WORKSPACE/theirRepo/$upmFile"
+            sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmParentFolder"/* "$GITHUB_WORKSPACE/myRepo/"
+          done
           sudo cp -a "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo/"
           package=$(cat package.json)
           newPackage=$(jq --arg newVersion "$theirTag" '.version = $newVersion' <<<"$package")
@@ -102,7 +107,8 @@ jobs:
           echo "Created upm release for tag $theirTag"
         done
       env:
-        UPM_FILES: "Assets/Mirror/* LICENSE README.md CONTRIBUTING.md"
+        UPM_FILES: "LICENSE README.md CONTRIBUTING.md"
+        UPM_FOLDER_CONTENTS: "Assets/Mirror"
         UPM_BRANCH: releases/upm
         REQUIRED_PREFIXES: "v"
         REQUIRED_SUBSTRINGS: ""
