@@ -71,7 +71,7 @@ jobs:
           cd "$GITHUB_WORKSPACE/myRepo"
           git checkout -B $UPM_BRANCH
           sudo rm -rf !('.git'|'.gitattributes'|'.gitignore') || true
-          sudo mv -v "/$GITHUB_WORKSPACE/theirRepo/$PKG_ROOT"/* "/$GITHUB_WORKSPACE/myRepo/"
+          sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$PKG_ROOT"/* "$GITHUB_WORKSPACE/myRepo/"
           sudo cp -rf "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo"
           package=$(cat package.json)
           newPackage=$(jq '.version = "$theirTag"' <<<"$package")
