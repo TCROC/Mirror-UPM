@@ -88,7 +88,7 @@ jobs:
           sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$PKG_ROOT"/* "$GITHUB_WORKSPACE/myRepo/"
           sudo cp -a "$GITHUB_WORKSPACE/PackageTemplate/." "$GITHUB_WORKSPACE/myRepo/"
           package=$(cat package.json)
-          newPackage=$(jq '.version = "$theirTag"' <<<"$package")
+          newPackage=$(jq --arg newVersion "$theirTag" '.version = $newVersion' <<<"$package")
           echo "$newPackage" > package.json
           git add -A
           git commit -m "Format for upm" || true
