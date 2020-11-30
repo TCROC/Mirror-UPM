@@ -323,8 +323,6 @@ namespace Mirror
                     // find the game-player object for this connection, and destroy it
                     NetworkIdentity identity = roomPlayer.GetComponent<NetworkIdentity>();
 
-                    NetworkIdentity playerController = identity.connectionToClient.identity;
-
                     if (NetworkServer.active)
                     {
                         // re-add the room object
@@ -393,7 +391,7 @@ namespace Mirror
         public override void OnStopServer()
         {
             roomSlots.Clear();
-            base.OnStopServer();
+            OnRoomStopServer();
         }
 
         /// <summary>
@@ -496,6 +494,11 @@ namespace Mirror
         /// This is called on the server when the server is started - including when a host is started.
         /// </summary>
         public virtual void OnRoomStartServer() { }
+
+        /// <summary>
+        /// This is called on the server when the server is started - including when a host is stopped.
+        /// </summary>
+        public virtual void OnRoomStopServer() { }
 
         /// <summary>
         /// This is called on the server when a new client connects to the server.
