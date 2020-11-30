@@ -70,8 +70,6 @@ namespace Mirror
         /// </summary>
         public bool isLocalPlayer => ClientScene.localPlayer == this;
 
-        internal bool pendingLocalPlayer { get; set; }
-
         /// <summary>
         /// This returns true if this object is the authoritative player object on the client.
         /// <para>This value is determined at runtime. For most objects, authority is held by the server.</para>
@@ -474,18 +472,17 @@ namespace Mirror
 
         internal void OnStartServer()
         {
-            observers = new Dictionary<int, NetworkConnection>();
-
             // If the instance/net ID is invalid here then this is an object instantiated from a prefab and the server should assign a valid ID
-            if (netId == 0)
+            if (netId != 0)
             {
-                netId = GetNextNetworkId();
-            }
-            else
-            {
-                Debug.LogError("Object has non-zero netId " + netId + " for " + gameObject);
+                // This object has already been spawned, this method might be called again
+                // if we try to respawn all objects.  This can happen when we add a scene
+                // in that case there is nothing else to do.
                 return;
             }
+
+            netId = GetNextNetworkId();
+            observers = new Dictionary<int, NetworkConnection>();
 
             if (LogFilter.Debug) Debug.Log("OnStartServer " + this + " NetId:" + netId + " SceneId:" + sceneId);
 
@@ -506,8 +503,13 @@ namespace Mirror
             }
         }
 
+        bool clientStarted;
         internal void OnStartClient()
         {
+            if (clientStarted)
+                return;
+            clientStarted = true;
+
             if (LogFilter.Debug) Debug.Log("OnStartClient " + gameObject + " netId:" + netId);
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
@@ -842,10 +844,12 @@ namespace Mirror
             OnDeserializeAllSafely(reader, initialState);
         }
 
-        internal void SetLocalPlayer()
+        private static NetworkIdentity previousLocalPlayer = null;
+        internal void OnStartLocalPlayer()
         {
-            hasAuthority = true;
-            NotifyAuthority();
+            if (previousLocalPlayer == this)
+                return;
+            previousLocalPlayer = this;
 
             foreach (NetworkBehaviour comp in networkBehavioursCache)
             {
@@ -1114,6 +1118,7 @@ namespace Mirror
             if (!m_Reset)
                 return;
 
+            clientStarted = false;
             m_Reset = false;
 
             netId = 0;
