@@ -805,16 +805,28 @@ namespace Mirror
 
             bool changed = false;
             bool result = false;
-            HashSet<NetworkConnection> newObservers = new HashSet<NetworkConnection>();
             HashSet<NetworkConnection> oldObservers = new HashSet<NetworkConnection>(observers.Values);
+            HashSet<NetworkConnection> newObservers = new HashSet<NetworkConnection>();
 
+            // call OnRebuildObservers function in components
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
                 result |= comp.OnRebuildObservers(newObservers, initialize);
             }
+
+            // if player connection: ensure player always see himself no matter what.
+            // -> fixes https://github.com/vis2k/Mirror/issues/692 where a
+            //    player might teleport out of the ProximityChecker's cast,
+            //    losing the own connection as observer.
+            if (connectionToClient != null && connectionToClient.isReady)
+            {
+                newObservers.Add(connectionToClient);
+            }
+
+            // if no component implemented OnRebuildObservers, then add all
+            // connections.
             if (!result)
             {
-                // none of the behaviours rebuilt our observers, use built-in rebuild method
                 if (initialize)
                 {
                     foreach (NetworkConnection conn in NetworkServer.connections.Values)
