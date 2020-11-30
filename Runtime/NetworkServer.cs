@@ -23,12 +23,12 @@ namespace Mirror
         // original HLAPI has .localConnections list with only m_LocalConnection in it
         // (for backwards compatibility because they removed the real localConnections list a while ago)
         // => removed it for easier code. use .localConnection now!
-        public static NetworkConnection localConnection { get; private set; }
+        public static NetworkConnectionToClient localConnection { get; private set; }
 
         /// <summary>
         /// A list of local connections on the server.
         /// </summary>
-        public static Dictionary<int, NetworkConnection> connections = new Dictionary<int, NetworkConnection>();
+        public static Dictionary<int, NetworkConnectionToClient> connections = new Dictionary<int, NetworkConnectionToClient>();
 
         /// <summary>
         /// <para>Dictionary of the message handlers registered with the server.</para>
@@ -148,7 +148,7 @@ namespace Mirror
         /// </summary>
         /// <param name="conn">Network connection to add.</param>
         /// <returns>True if added.</returns>
-        public static bool AddConnection(NetworkConnection conn)
+        public static bool AddConnection(NetworkConnectionToClient conn)
         {
             if (!connections.ContainsKey(conn.connectionId))
             {
@@ -190,7 +190,6 @@ namespace Mirror
             if (localConnection != null)
             {
                 localConnection.Disconnect();
-                localConnection.Dispose();
                 localConnection = null;
             }
             localClientActive = false;
@@ -247,7 +246,7 @@ namespace Mirror
 
                 // send to all internet connections at once
                 if (connectionIdsCache.Count > 0)
-                    result &= NetworkConnection.Send(connectionIdsCache, segment);
+                    result &= NetworkConnectionToClient.Send(connectionIdsCache, segment);
                 NetworkDiagnostics.OnSend(msg, Channels.DefaultReliable, segment.Count, identity.observers.Count);
 
                 // recycle writer and return
@@ -270,7 +269,7 @@ namespace Mirror
 
             // send to all
             bool result = true;
-            foreach (KeyValuePair<int, NetworkConnection> kvp in connections)
+            foreach (KeyValuePair<int, NetworkConnectionToClient> kvp in connections)
             {
                 result &= kvp.Value.Send(new ArraySegment<byte>(bytes), channelId);
             }
@@ -302,7 +301,7 @@ namespace Mirror
             //    avoid allocations, allow for multicast, etc.
             connectionIdsCache.Clear();
             bool result = true;
-            foreach (KeyValuePair<int, NetworkConnection> kvp in connections)
+            foreach (KeyValuePair<int, NetworkConnectionToClient> kvp in connections)
             {
                 // use local connection directly because it doesn't send via transport
                 if (kvp.Value is ULocalConnectionToClient)
@@ -314,7 +313,7 @@ namespace Mirror
 
             // send to all internet connections at once
             if (connectionIdsCache.Count > 0)
-                result &= NetworkConnection.Send(connectionIdsCache, segment);
+                result &= NetworkConnectionToClient.Send(connectionIdsCache, segment);
             NetworkDiagnostics.OnSend(msg, channelId, segment.Count, connections.Count);
 
             // recycle writer and return
@@ -396,7 +395,7 @@ namespace Mirror
 
                 // send to all internet connections at once
                 if (connectionIdsCache.Count > 0)
-                    result &= NetworkConnection.Send(connectionIdsCache, segment);
+                    result &= NetworkConnectionToClient.Send(connectionIdsCache, segment);
                 NetworkDiagnostics.OnSend(msg, channelId, segment.Count, count);
 
                 // recycle writer and return
@@ -445,7 +444,6 @@ namespace Mirror
                 // call OnDisconnected unless local player in host mode
                 if (conn.connectionId != 0)
                     OnDisconnected(conn);
-                conn.Dispose();
             }
             connections.Clear();
         }
@@ -499,11 +497,8 @@ namespace Mirror
             //  Transport can't do that)
             if (connections.Count < maxConnections)
             {
-                // get ip address from connection
-                string address = Transport.activeTransport.ServerGetClientAddress(connectionId);
-
                 // add connection
-                NetworkConnection conn = new NetworkConnection(address, connectionId);
+                NetworkConnectionToClient conn = new NetworkConnectionToClient(connectionId);
                 OnConnected(conn);
             }
             else
@@ -514,7 +509,7 @@ namespace Mirror
             }
         }
 
-        static void OnConnected(NetworkConnection conn)
+        static void OnConnected(NetworkConnectionToClient conn)
         {
             if (LogFilter.Debug) Debug.Log("Server accepted client:" + conn);
 
@@ -527,7 +522,7 @@ namespace Mirror
         {
             if (LogFilter.Debug) Debug.Log("Server disconnect client:" + connectionId);
 
-            if (connections.TryGetValue(connectionId, out NetworkConnection conn))
+            if (connections.TryGetValue(connectionId, out NetworkConnectionToClient conn))
             {
                 conn.Disconnect();
                 RemoveConnection(connectionId);
@@ -545,7 +540,7 @@ namespace Mirror
 
         static void OnDataReceived(int connectionId, ArraySegment<byte> data, int channelId)
         {
-            if (connections.TryGetValue(connectionId, out NetworkConnection conn))
+            if (connections.TryGetValue(connectionId, out NetworkConnectionToClient conn))
             {
                 conn.TransportReceive(data, channelId);
             }
@@ -642,7 +637,7 @@ namespace Mirror
         [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use connection.Send(msg) instead.")]
         public static void SendToClient(int connectionId, int msgType, MessageBase msg)
         {
-            if (connections.TryGetValue(connectionId, out NetworkConnection conn))
+            if (connections.TryGetValue(connectionId, out NetworkConnectionToClient conn))
             {
                 conn.Send(msgType, msg);
                 return;
@@ -660,7 +655,7 @@ namespace Mirror
         [Obsolete("Use connection.Send(msg) instead")]
         public static void SendToClient<T>(int connectionId, T msg) where T : IMessageBase
         {
-            if (connections.TryGetValue(connectionId, out NetworkConnection conn))
+            if (connections.TryGetValue(connectionId, out NetworkConnectionToClient conn))
             {
                 conn.Send(msg);
                 return;
@@ -854,9 +849,6 @@ namespace Mirror
                 // Set up local player instance on the client instance and update local object map
                 NetworkClient.AddLocalPlayer(identity);
                 identity.SetClientOwner(conn);
-
-                // Trigger OnAuthority
-                identity.ForceAuthority(true);
 
                 // Trigger OnStartLocalPlayer
                 identity.SetLocalPlayer();
@@ -1094,7 +1086,7 @@ namespace Mirror
                 SpawnPrefabMessage msg = new SpawnPrefabMessage
                 {
                     netId = identity.netId,
-                    owner = conn?.identity == identity,
+                    isLocalPlayer = conn?.identity == identity,
                     assetId = identity.assetId,
                     // use local values for VR support
                     position = identity.transform.localPosition,
@@ -1136,7 +1128,7 @@ namespace Mirror
                 SpawnSceneObjectMessage msg = new SpawnSceneObjectMessage
                 {
                     netId = identity.netId,
-                    owner = conn?.identity == identity,
+                    isLocalPlayer = conn?.identity == identity,
                     sceneId = identity.sceneId,
                     // use local values for VR support
                     position = identity.transform.localPosition,
@@ -1184,16 +1176,6 @@ namespace Mirror
         /// <param name="conn">The connections object to clean up for.</param>
         public static void DestroyPlayerForConnection(NetworkConnection conn)
         {
-            // => destroy what we can destroy.
-            HashSet<uint> tmp = new HashSet<uint>(conn.clientOwnedObjects);
-            foreach (uint netId in tmp)
-            {
-                if (NetworkIdentity.spawned.TryGetValue(netId, out NetworkIdentity identity))
-                {
-                    Destroy(identity.gameObject);
-                }
-            }
-
             if (conn.identity != null)
             {
                 DestroyObject(conn.identity, true);
@@ -1449,12 +1431,7 @@ namespace Mirror
             foreach (NetworkIdentity identity in identities)
             {
                 if (ValidateSceneObject(identity))
-                {
                     Spawn(identity.gameObject);
-
-                    // these objects are server authority - even if "localPlayerAuthority" is set on them
-                    identity.ForceAuthority(false);
-                }
             }
             return true;
         }
