@@ -179,20 +179,20 @@ namespace Mirror
         public void Serialize(NetworkWriter writer) { }
     }
 
-    public class SceneMessage : MessageBase
+    public struct SceneMessage : IMessageBase
     {
         public string sceneName;
         public LoadSceneMode sceneMode; // Single = 0, Additive = 1
         public LocalPhysicsMode physicsMode; // None = 0, Physics3D = 1, Physics2D = 2
 
-        public override void Deserialize(NetworkReader reader)
+        public void Deserialize(NetworkReader reader)
         {
             sceneName = reader.ReadString();
             sceneMode = (LoadSceneMode)reader.ReadByte();
             physicsMode = (LocalPhysicsMode)reader.ReadByte();
         }
 
-        public override void Serialize(NetworkWriter writer)
+        public void Serialize(NetworkWriter writer)
         {
             writer.WriteString(sceneName);
             writer.WriteByte((byte)sceneMode);
@@ -321,68 +321,68 @@ namespace Mirror
         public void Serialize(NetworkWriter writer) { }
     }
 
-    class ObjectDestroyMessage : MessageBase
+    struct ObjectDestroyMessage : IMessageBase
     {
         public uint netId;
 
-        public override void Deserialize(NetworkReader reader)
+        public void Deserialize(NetworkReader reader)
         {
             netId = reader.ReadPackedUInt32();
         }
 
-        public override void Serialize(NetworkWriter writer)
+        public void Serialize(NetworkWriter writer)
         {
             writer.WritePackedUInt32(netId);
         }
     }
 
-    class ObjectHideMessage : MessageBase
+    struct ObjectHideMessage : IMessageBase
     {
         public uint netId;
 
-        public override void Deserialize(NetworkReader reader)
+        public void Deserialize(NetworkReader reader)
         {
             netId = reader.ReadPackedUInt32();
         }
 
-        public override void Serialize(NetworkWriter writer)
+        public void Serialize(NetworkWriter writer)
         {
             writer.WritePackedUInt32(netId);
         }
     }
 
-    class ClientAuthorityMessage : MessageBase
+    struct ClientAuthorityMessage : IMessageBase
     {
         public uint netId;
         public bool authority;
 
-        public override void Deserialize(NetworkReader reader)
+        public void Deserialize(NetworkReader reader)
         {
             netId = reader.ReadPackedUInt32();
             authority = reader.ReadBoolean();
         }
 
-        public override void Serialize(NetworkWriter writer)
+        public void Serialize(NetworkWriter writer)
         {
             writer.WritePackedUInt32(netId);
             writer.WriteBoolean(authority);
         }
     }
 
-    class UpdateVarsMessage : MessageBase
+    struct UpdateVarsMessage : IMessageBase
     {
         public uint netId;
         // the serialized component data
         // -> ArraySegment to avoid unnecessary allocations
         public ArraySegment<byte> payload;
 
-        public override void Deserialize(NetworkReader reader)
+        public void Deserialize(NetworkReader reader)
         {
             netId = reader.ReadPackedUInt32();
             payload = reader.ReadBytesAndSizeSegment();
         }
 
-        public override void Serialize(NetworkWriter writer)
+        public void Serialize(NetworkWriter writer)
         {
             writer.WritePackedUInt32(netId);
             writer.WriteBytesAndSizeSegment(payload);
