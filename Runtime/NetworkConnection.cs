@@ -225,8 +225,9 @@ namespace Mirror
         {
             // pack message and send
             byte[] message = MessagePacker.PackMessage(msgType, msg);
-            return Send(message, channelId);
+            return Send(new ArraySegment<byte>(message), channelId);
         }
+
 
         /// <summary>
         /// This sends a network message with a message ID on the connection. This message is sent on channel zero, which by default is the reliable channel.
@@ -237,10 +238,15 @@ namespace Mirror
         /// <returns></returns>
         public virtual bool Send<T>(T msg, int channelId = Channels.DefaultReliable) where T : IMessageBase
         {
-            // pack message and send
-            byte[] message = MessagePacker.Pack(msg);
-            NetworkDiagnostics.OnSend(msg, channelId, message.Length, 1);
-            return Send(message, channelId);
+            NetworkWriter writer = NetworkWriterPool.GetWriter();
+
+            // pack message and send allocation free
+            MessagePacker.Pack(msg, writer);
+            NetworkDiagnostics.OnSend(msg, channelId, writer.Position, 1);
+            bool result = Send(writer.ToArraySegment(), channelId);
+
+            NetworkWriterPool.Recycle(writer);
+            return result;
         }
 
         // validate packet size before sending. show errors if too big/small.
@@ -248,15 +254,15 @@ namespace Mirror
         //    would check max size and show errors internally. best to do it
         //    in one place in hlapi.
         // => it's important to log errors, so the user knows what went wrong.
-        static bool ValidatePacketSize(byte[] bytes, int channelId)
+        static bool ValidatePacketSize(ArraySegment<byte> segment, int channelId)
         {
-            if (bytes.Length > Transport.activeTransport.GetMaxPacketSize(channelId))
+            if (segment.Count > Transport.activeTransport.GetMaxPacketSize(channelId))
             {
                 Debug.LogError("NetworkConnection.ValidatePacketSize: cannot send packet larger than " + Transport.activeTransport.GetMaxPacketSize(channelId) + " bytes");
                 return false;
             }
 
-            if (bytes.Length == 0)
+            if (segment.Count == 0)
             {
                 // zero length packets getting into the packet queues are bad.
                 Debug.LogError("NetworkConnection.ValidatePacketSize: cannot send zero bytes");
@@ -269,37 +275,39 @@ namespace Mirror
 
         // internal because no one except Mirror should send bytes directly to
         // the client. they would be detected as a message. send messages instead.
-        internal virtual bool Send(byte[] bytes, int channelId = Channels.DefaultReliable)
+        List<int> singleConnectionId = new List<int>{-1};
+        internal virtual bool Send(ArraySegment<byte> segment, int channelId = Channels.DefaultReliable)
         {
-            if (logNetworkMessages) Debug.Log("ConnectionSend con:" + connectionId + " bytes:" + BitConverter.ToString(bytes));
+            if (logNetworkMessages) Debug.Log("ConnectionSend con:" + connectionId + " bytes:" + BitConverter.ToString(segment.Array, segment.Offset, segment.Count));
 
             // validate packet size first.
-            if (ValidatePacketSize(bytes, channelId))
+            if (ValidatePacketSize(segment, channelId))
             {
                 // send to client or server
                 if (Transport.activeTransport.ClientConnected())
                 {
-                    return Transport.activeTransport.ClientSend(channelId, bytes);
+                    return Transport.activeTransport.ClientSend(channelId, segment);
                 }
                 else if (Transport.activeTransport.ServerActive())
                 {
-                    return Transport.activeTransport.ServerSend(connectionId, channelId, bytes);
+                    singleConnectionId[0] = connectionId;
+                    return Transport.activeTransport.ServerSend(singleConnectionId, channelId, segment);
                 }
             }
             return false;
         }
 
         // Send to many. basically Transport.Send(connections) + checks.
-        internal static bool Send(List<int> connectionIds, byte[] bytes, int channelId = Channels.DefaultReliable)
+        internal static bool Send(List<int> connectionIds, ArraySegment<byte> segment, int channelId = Channels.DefaultReliable)
         {
             // validate packet size first.
-            if (ValidatePacketSize(bytes, channelId))
+            if (ValidatePacketSize(segment, channelId))
             {
                 // only the server sends to many, we don't have that function on
                 // a client.
                 if (Transport.activeTransport.ServerActive())
                 {
-                    return Transport.activeTransport.ServerSend(connectionIds, channelId, bytes);
+                    return Transport.activeTransport.ServerSend(connectionIds, channelId, segment);
                 }
             }
             return false;
@@ -344,10 +352,10 @@ namespace Mirror
         [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use InvokeHandler<T> instead")]
         public bool InvokeHandlerNoData(int msgType)
         {
-            return InvokeHandler(msgType, null);
+            return InvokeHandler(msgType, null, -1);
         }
 
-        internal bool InvokeHandler(int msgType, NetworkReader reader)
+        internal bool InvokeHandler(int msgType, NetworkReader reader, int channelId)
         {
             if (messageHandlers.TryGetValue(msgType, out NetworkMessageDelegate msgDelegate))
             {
@@ -355,7 +363,8 @@ namespace Mirror
                 {
                     msgType = msgType,
                     reader = reader,
-                    conn = this
+                    conn = this,
+                    channelId = channelId
                 };
 
                 msgDelegate(message);
@@ -372,11 +381,20 @@ namespace Mirror
         /// <typeparam name="T">The message type to unregister.</typeparam>
         /// <param name="msg">The message object to process.</param>
         /// <returns></returns>
-        public bool InvokeHandler<T>(T msg) where T : IMessageBase
+        public bool InvokeHandler<T>(T msg, int channelId) where T : IMessageBase
         {
+            // get writer from pool
+            NetworkWriter writer = NetworkWriterPool.GetWriter();
+
+            // pack and invoke
             int msgType = MessagePacker.GetId(msg.GetType());
-            byte[] data = MessagePacker.Pack(msg);
-            return InvokeHandler(msgType, new NetworkReader(data));
+            MessagePacker.Pack(msg, writer);
+            ArraySegment<byte> segment = writer.ToArraySegment();
+            bool result = InvokeHandler(msgType, new NetworkReader(segment), channelId);
+
+            // recycle writer and return
+            NetworkWriterPool.Recycle(writer);
+            return result;
         }
 
         // note: original HLAPI HandleBytes function handled >1 message in a while loop, but this wasn't necessary
@@ -389,7 +407,7 @@ namespace Mirror
         /// This virtual function allows custom network connection classes to process data from the network before it is passed to the application.
         /// </summary>
         /// <param name="buffer">The data recieved.</param>
-        public virtual void TransportReceive(ArraySegment<byte> buffer)
+        public virtual void TransportReceive(ArraySegment<byte> buffer, int channelId)
         {
             // unpack message
             NetworkReader reader = new NetworkReader(buffer);
@@ -399,7 +417,7 @@ namespace Mirror
                 if (logNetworkMessages) Debug.Log("ConnectionRecv con:" + connectionId + " msgType:" + msgType + " content:" + BitConverter.ToString(buffer.Array, buffer.Offset, buffer.Count));
 
                 // try to invoke the handler for that message
-                if (InvokeHandler(msgType, reader))
+                if (InvokeHandler(msgType, reader, channelId))
                 {
                     lastMessageTime = Time.time;
                 }

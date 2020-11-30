@@ -9,10 +9,10 @@ using UnityEngine.Events;
 namespace Mirror
 {
     // UnityEvent definitions
-    [Serializable] public class UnityEventArraySegment : UnityEvent<ArraySegment<byte>> {}
+    [Serializable] public class ClientDataReceivedEvent : UnityEvent<ArraySegment<byte>, int> {}
     [Serializable] public class UnityEventException : UnityEvent<Exception> {}
     [Serializable] public class UnityEventInt : UnityEvent<int> {}
-    [Serializable] public class UnityEventIntArraySegment : UnityEvent<int, ArraySegment<byte>> {}
+    [Serializable] public class ServerDataReceivedEvent : UnityEvent<int, ArraySegment<byte>, int> {}
     [Serializable] public class UnityEventIntException : UnityEvent<int, Exception> {}
 
     public abstract class Transport : MonoBehaviour
@@ -42,7 +42,7 @@ namespace Mirror
         /// <summary>
         /// Notify subscribers when this client receive data from the server
         /// </summary>
-        [HideInInspector] public UnityEventArraySegment OnClientDataReceived = new UnityEventArraySegment();
+        [HideInInspector] public ClientDataReceivedEvent OnClientDataReceived = new ClientDataReceivedEvent();
 
         /// <summary>
         /// Notify subscribers when this clianet encounters an error communicating with the server
@@ -72,9 +72,9 @@ namespace Mirror
         /// <param name="channelId">The channel to use.  0 is the default channel,
         /// but some transports might want to provide unreliable, encrypted, compressed, or any other feature
         /// as new channels</param>
-        /// <param name="data">The data to send to the server</param>
+        /// <param name="segment">The data to send to the server. Will be recycled after returning, so either use it directly or copy it internally. This allows for allocation-free sends!</param>
         /// <returns>true if the send was successful</returns>
-        public abstract bool ClientSend(int channelId, byte[] data);
+        public abstract bool ClientSend(int channelId, ArraySegment<byte> segment);
 
         /// <summary>
         /// Disconnect this client from the server
@@ -93,7 +93,7 @@ namespace Mirror
         /// <summary>
         /// Notify subscribers when this server receives data from the client
         /// </summary>
-        [HideInInspector] public UnityEventIntArraySegment OnServerDataReceived = new UnityEventIntArraySegment();
+        [HideInInspector] public ServerDataReceivedEvent OnServerDataReceived = new ServerDataReceivedEvent();
 
         /// <summary>
         /// Notify subscribers when this server has some problem communicating with the client
@@ -117,28 +117,18 @@ namespace Mirror
         public abstract void ServerStart();
 
         /// <summary>
-        /// Send data to a client
+        /// Send data to one or multiple clients. We provide a list, so that transports can make use
+        /// of multicasting, and avoid allocations where possible.
+        ///
+        /// We don't provide a single ServerSend function to reduce complexity. Simply overwrite this
+        /// one in your Transport.
         /// </summary>
-        /// <param name="connectionId">The id of the client to send the data to</param>
+        /// <param name="connectionIds">The list of client connection ids to send the data to</param>
         /// <param name="channelId">The channel to be used.  Transports can use channels to implement
         /// other features such as unreliable, encryption, compression, etc...</param>
         /// <param name="data"></param>
-        /// <returns>true if the data was sent</returns>
-        public abstract bool ServerSend(int connectionId, int channelId, byte[] data);
-
-        /// <summary>
-        /// Send data to multiple clients at once.
-        /// Calls ServerSend by default. Can be overwritten by transports that can send to multiple
-        /// clients at once more efficiently if needed.
-        /// </summary>
-        internal virtual bool ServerSend(List<int> connectionIds, int channelId, byte[] data)
-        {
-            // true by default (for empty lists)
-            bool result = true;
-            foreach (int connectionId in connectionIds)
-                result &= ServerSend(connectionId, channelId, data);
-            return result;
-        }
+        /// <returns>true if the data was sent to all clients</returns>
+        public abstract bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment);
 
         /// <summary>
         /// Disconnect a client from this server.  Useful to kick people out.
