@@ -55,7 +55,7 @@ namespace Mirror
         public static bool localClientActive { get; private set; }
 
         // cache the Send(connectionIds) list to avoid allocating each time
-        static List<int> connectionIdsCache = new List<int>();
+        static readonly List<int> connectionIdsCache = new List<int>();
 
         /// <summary>
         /// Reset the NetworkServer singleton.
@@ -213,29 +213,6 @@ namespace Mirror
                     identity.OnStartClient();
                 }
             }
-        }
-
-        // this is like SendToReady - but it doesn't check the ready flag on the connection.
-        // this is used for ObjectDestroy messages.
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("use SendToObservers<T> instead")]
-        static bool SendToObservers(NetworkIdentity identity, short msgType, MessageBase msg)
-        {
-            if (LogFilter.Debug) Debug.Log("Server.SendToObservers id:" + msgType);
-
-            if (identity != null && identity.observers != null)
-            {
-                // pack message into byte[] once
-                byte[] bytes = MessagePacker.PackMessage((ushort)msgType, msg);
-
-                // send to all observers
-                bool result = true;
-                foreach (KeyValuePair<int, NetworkConnection> kvp in identity.observers)
-                {
-                    result &= kvp.Value.Send(new ArraySegment<byte>(bytes));
-                }
-                return result;
-            }
-            return false;
         }
 
         // this is like SendToReady - but it doesn't check the ready flag on the connection.
