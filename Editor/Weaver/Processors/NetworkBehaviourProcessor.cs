@@ -21,10 +21,6 @@ namespace Mirror.Weaver
         readonly List<MethodDefinition> targetRpcInvocationFuncs = new List<MethodDefinition>();
         readonly List<MethodDefinition> eventRpcInvocationFuncs = new List<MethodDefinition>();
 
-        readonly List<MethodDefinition> commandCallFuncs = new List<MethodDefinition>();
-        readonly List<MethodDefinition> clientRpcCallFuncs = new List<MethodDefinition>();
-        readonly List<MethodDefinition> targetRpcCallFuncs = new List<MethodDefinition>();
-
         readonly TypeDefinition netBehaviourSubclass;
 
         public NetworkBehaviourProcessor(TypeDefinition td)
@@ -841,8 +837,10 @@ namespace Mirror.Weaver
         {
             HashSet<string> names = new HashSet<string>();
 
+            // copy the list of methods because we will be adding methods in the loop
+            List<MethodDefinition> methods = new List<MethodDefinition>(netBehaviourSubclass.Methods);
             // find command and RPC functions
-            foreach (MethodDefinition md in netBehaviourSubclass.Methods)
+            foreach (MethodDefinition md in methods)
             {
                 foreach (CustomAttribute ca in md.CustomAttributes)
                 {
@@ -864,34 +862,6 @@ namespace Mirror.Weaver
                         break;
                     }
                 }
-            }
-
-            // cmds
-            foreach (MethodDefinition md in commandInvocationFuncs)
-            {
-                netBehaviourSubclass.Methods.Add(md);
-            }
-            foreach (MethodDefinition md in commandCallFuncs)
-            {
-                netBehaviourSubclass.Methods.Add(md);
-            }
-
-            // rpcs
-            foreach (MethodDefinition md in clientRpcInvocationFuncs)
-            {
-                netBehaviourSubclass.Methods.Add(md);
-            }
-            foreach (MethodDefinition md in targetRpcInvocationFuncs)
-            {
-                netBehaviourSubclass.Methods.Add(md);
-            }
-            foreach (MethodDefinition md in clientRpcCallFuncs)
-            {
-                netBehaviourSubclass.Methods.Add(md);
-            }
-            foreach (MethodDefinition md in targetRpcCallFuncs)
-            {
-                netBehaviourSubclass.Methods.Add(md);
             }
         }
 
@@ -917,11 +887,6 @@ namespace Mirror.Weaver
             {
                 clientRpcInvocationFuncs.Add(rpcFunc);
             }
-
-            if (rpcCallFunc != null)
-            {
-                clientRpcCallFuncs.Add(rpcCallFunc);
-            }
         }
 
         void ProcessTargetRpc(HashSet<string> names, MethodDefinition md, CustomAttribute ca)
@@ -943,11 +908,6 @@ namespace Mirror.Weaver
             if (rpcFunc != null)
             {
                 targetRpcInvocationFuncs.Add(rpcFunc);
-            }
-
-            if (rpcCallFunc != null)
-            {
-                targetRpcCallFuncs.Add(rpcCallFunc);
             }
         }
 
@@ -971,11 +931,6 @@ namespace Mirror.Weaver
             if (cmdFunc != null)
             {
                 commandInvocationFuncs.Add(cmdFunc);
-            }
-
-            if (cmdCallFunc != null)
-            {
-                commandCallFuncs.Add(cmdCallFunc);
             }
         }
     }

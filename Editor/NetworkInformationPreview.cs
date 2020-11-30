@@ -63,11 +63,6 @@ namespace Mirror
         GUIContent title;
         Styles styles = new Styles();
 
-        public override void Initialize(UnityObject[] targets)
-        {
-            base.Initialize(targets);
-        }
-
         public override GUIContent GetPreviewTitle()
         {
             if (title == null)
@@ -79,7 +74,7 @@ namespace Mirror
 
         public override bool HasPreviewGUI()
         {
-            return target != null && target is GameObject gameObject && gameObject.GetComponent<NetworkIdentity>() != null;
+            return target is GameObject gameObject && gameObject.GetComponent<NetworkIdentity>() != null;
         }
 
         public override void OnPreviewGUI(Rect r, GUIStyle background)
@@ -90,7 +85,7 @@ namespace Mirror
             if (target == null)
                 return;
 
-            var targetGameObject = target as GameObject;
+            GameObject targetGameObject = target as GameObject;
 
             if (targetGameObject == null)
                 return;
@@ -246,36 +241,37 @@ namespace Mirror
 
         IEnumerable<NetworkIdentityInfo> GetNetworkIdentityInfo(NetworkIdentity identity)
         {
-            yield return GetAssetId(identity);
-            yield return GetString("Scene ID", identity.sceneId.ToString("X"));
-
-            if (!Application.isPlaying)
+            List<NetworkIdentityInfo> infos = new List<NetworkIdentityInfo>
             {
-                yield break;
+                GetAssetId(identity),
+                GetString("Scene ID", identity.sceneId.ToString("X"))
+            };
+
+            if (Application.isPlaying)
+            {
+                infos.Add(GetString("Network ID", identity.netId.ToString()));
+                infos.Add(GetBoolean("Is Client", identity.isClient));
+                infos.Add(GetBoolean("Is Server", identity.isServer));
+                infos.Add(GetBoolean("Has Authority", identity.hasAuthority));
+                infos.Add(GetBoolean("Is Local Player", identity.isLocalPlayer));
             }
-
-            yield return GetString("Network ID", identity.netId.ToString());
-
-            yield return GetBoolean("Is Client", identity.isClient);
-            yield return GetBoolean("Is Server", identity.isServer);
-            yield return GetBoolean("Has Authority", identity.hasAuthority);
-            yield return GetBoolean("Is Local Player", identity.isLocalPlayer);
+            return infos;
         }
 
         IEnumerable<NetworkBehaviourInfo> GetNetworkBehaviorInfo(NetworkIdentity identity)
         {
+            List<NetworkBehaviourInfo> behaviourInfos = new List<NetworkBehaviourInfo>();
+
             NetworkBehaviour[] behaviours = identity.GetComponents<NetworkBehaviour>();
-            if (behaviours.Length > 0)
+            foreach (NetworkBehaviour behaviour in behaviours)
             {
-                foreach (NetworkBehaviour behaviour in behaviours)
+                behaviourInfos.Add(new NetworkBehaviourInfo
                 {
-                    yield return new NetworkBehaviourInfo
-                    {
-                        name = new GUIContent(behaviour.GetType().FullName),
-                        behaviour = behaviour
-                    };
-                }
+                    name = new GUIContent(behaviour.GetType().FullName),
+                    behaviour = behaviour
+                });
             }
+            return behaviourInfos;
         }
 
         NetworkIdentityInfo GetAssetId(NetworkIdentity identity)
