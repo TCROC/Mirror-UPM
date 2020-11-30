@@ -768,7 +768,6 @@ namespace Mirror
             if (clientReadyConnection != null)
             {
                 clientLoadedScene = true;
-                OnClientConnect(clientReadyConnection);
                 clientReadyConnection = null;
             }
 
@@ -789,7 +788,7 @@ namespace Mirror
 
         #region Start Positions
 
-        static int startPositionIndex;
+        public static int startPositionIndex;
 
         /// <summary>
         /// List of transforms populted by NetworkStartPosition components found in the scene.
