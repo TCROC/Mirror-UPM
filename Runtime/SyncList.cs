@@ -65,6 +65,7 @@ namespace Mirror
             OP_REMOVE,
             OP_REMOVEAT,
             OP_SET,
+            [Obsolete("Lists now use OP_SET instead of OP_DIRTY")]
             OP_DIRTY
         }
 
@@ -168,7 +169,6 @@ namespace Mirror
 
                     case Operation.OP_INSERT:
                     case Operation.OP_SET:
-                    case Operation.OP_DIRTY:
                         writer.WritePackedUInt32((uint)change.index);
                         SerializeItem(writer, change.item);
                         break;
@@ -253,7 +253,6 @@ namespace Mirror
                         break;
 
                     case Operation.OP_SET:
-                    case Operation.OP_DIRTY:
                         index = (int)reader.ReadPackedUInt32();
                         item = DeserializeItem(reader);
                         if (apply)
@@ -328,11 +327,6 @@ namespace Mirror
         {
             objects.RemoveAt(index);
             AddOperation(Operation.OP_REMOVEAT, index);
-        }
-
-        public void Dirty(int index)
-        {
-            AddOperation(Operation.OP_DIRTY, index, objects[index]);
         }
 
         public T this[int i]
