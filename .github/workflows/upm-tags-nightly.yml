@@ -93,7 +93,6 @@ jobs:
           done
           for upmParentFolder in $UPM_FOLDER_CONTENTS
           do
-          [[ "$upmParentFolder" == *"Tests"* ]] && continue # don't include any folders containing the name Tests
           if [[ "$upmParentFolder" != "" && "$theirTag" == *"$excludedSubstring"* ]]; then
             echo "Moving file at path $GITHUB_WORKSPACE/theirRepo/$upmFile"
             sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmParentFolder"/* "$GITHUB_WORKSPACE/myRepo/"
@@ -103,6 +102,8 @@ jobs:
           package=$(cat package.json)
           newPackage=$(jq --arg newVersion "$tagToVersion" '.version = $newVersion' <<<"$package")
           echo "$newPackage" > package.json
+          rm -rf "Tests" # Remove Tests from the UPM release
+          rm -rf "Tests.meta" # Remove Tests from the UPM release
           git add -A
           git commit -m "Format for upm" || true
           upmSHA1=$(git rev-parse $UPM_BRANCH)
