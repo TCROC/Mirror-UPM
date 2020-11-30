@@ -183,10 +183,12 @@ namespace Mirror
         // when building standalone
         #pragma warning disable CS0649
         [SerializeField] ulong m_SceneId;
-        #pragma warning restore CS0649 
+        #pragma warning restore CS0649
 
         // keep track of all sceneIds to detect scene duplicates
         static readonly Dictionary<ulong, NetworkIdentity> sceneIds = new Dictionary<ulong, NetworkIdentity>();
+
+        public NetworkIdentity GetSceneIdenity(ulong id) => sceneIds[id];
 
         // used when adding players
         internal void SetClientOwner(NetworkConnection conn)
@@ -1230,23 +1232,44 @@ namespace Mirror
                         NetworkServer.SendToReady(this, varsMessage, false);
                     }
 
-                    // only clear bits if we sent something
-                    ClearDirtyBits();
+                    // clear dirty bits only for the components that we serialized
+                    // DO NOT clean ALL component's dirty bits, because
+                    // components can have different syncIntervals and we don't
+                    // want to reset dirty bits for the ones that were not
+                    // synced yet.
+                    // (we serialized only the IsDirty() components, or all of
+                    //  them if initialState. clearing the dirty ones is enough.)
+                    ClearDirtyComponentsDirtyBits();
                 }
                 NetworkWriterPool.Recycle(ownerWriter);
                 NetworkWriterPool.Recycle(observersWriter);
             }
             else
             {
-                ClearDirtyBits();
+                // clear all component's dirty bits
+                ClearAllComponentsDirtyBits();
             }
         }
 
-        private void ClearDirtyBits()
+        // clear all component's dirty bits no matter what
+        internal void ClearAllComponentsDirtyBits()
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
                 comp.ClearAllDirtyBits();
+            }
+        }
+
+        // clear only dirty component's dirty bits. ignores components which
+        // may be dirty but not ready to be synced yet (because of syncInterval)
+        internal void ClearDirtyComponentsDirtyBits()
+        {
+            foreach (NetworkBehaviour comp in NetworkBehaviours)
+            {
+                if (comp.IsDirty())
+                {
+                    comp.ClearAllDirtyBits();
+                }
             }
         }
     }
