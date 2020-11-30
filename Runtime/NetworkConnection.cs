@@ -30,7 +30,7 @@ namespace Mirror
         /// <para>Transport layers connections begin at one. So on a client with a single connection to a server, the connectionId of that connection will be one. In NetworkServer, the connectionId of the local connection is zero.</para>
         /// <para>Clients do not know their connectionId on the server, and do not know the connectionId of other clients on the server.</para>
         /// </remarks>
-        public int connectionId = -1;
+        public readonly int connectionId = -1;
 
         /// <summary>
         /// Flag that indicates the client has been authenticated.
@@ -114,9 +114,10 @@ namespace Mirror
         /// Creates a new NetworkConnection with the specified address
         /// </summary>
         /// <param name="networkAddress"></param>
-        public NetworkConnection(string networkAddress)
+        internal NetworkConnection(string networkAddress)
         {
             address = networkAddress;
+            connectionId = 0;
         }
 
         /// <summary>
@@ -124,7 +125,7 @@ namespace Mirror
         /// </summary>
         /// <param name="networkAddress"></param>
         /// <param name="networkConnectionId"></param>
-        public NetworkConnection(string networkAddress, int networkConnectionId)
+        internal NetworkConnection(string networkAddress, int networkConnectionId)
         {
             address = networkAddress;
             connectionId = networkConnectionId;
@@ -412,7 +413,7 @@ namespace Mirror
         /// This function allows custom network connection classes to process data from the network before it is passed to the application.
         /// </summary>
         /// <param name="buffer">The data received.</param>
-        public void TransportReceive(ArraySegment<byte> buffer, int channelId)
+        internal void TransportReceive(ArraySegment<byte> buffer, int channelId)
         {
             // unpack message
             NetworkReader reader = new NetworkReader(buffer);
