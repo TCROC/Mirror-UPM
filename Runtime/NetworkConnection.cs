@@ -16,6 +16,7 @@ namespace Mirror
     /// </remarks>
     public abstract class NetworkConnection : IDisposable
     {
+        public const int LocalConnectionId = 0;
         static readonly ILogger logger = LogFactory.GetLogger<NetworkConnection>();
 
         // internal so it can be tested
@@ -100,6 +101,8 @@ namespace Mirror
         internal NetworkConnection(int networkConnectionId)
         {
             connectionId = networkConnectionId;
+            // set lastTime to current time when creating connection to make sure it isn't instantly kicked for inactivity 
+            lastMessageTime = Time.time;
         }
 
         ~NetworkConnection()
