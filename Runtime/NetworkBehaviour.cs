@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using Mirror.RemoteCalls;
 using UnityEngine;
 
@@ -172,7 +171,6 @@ namespace Mirror
         }
 
         #region Commands
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected void SendCommandInternal(Type invokeClass, string cmdName, NetworkWriter writer, int channelId, bool ignoreAuthority = false)
         {
             // this was in Weaver before
@@ -213,7 +211,6 @@ namespace Mirror
         #endregion
 
         #region Client RPCs
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected void SendRPCInternal(Type invokeClass, string rpcName, NetworkWriter writer, int channelId, bool excludeOwner)
         {
             // this was in Weaver before
@@ -246,7 +243,6 @@ namespace Mirror
             NetworkServer.SendToReady(netIdentity, message, includeOwner, channelId);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected void SendTargetRPCInternal(NetworkConnection conn, Type invokeClass, string rpcName, NetworkWriter writer, int channelId)
         {
             // this was in Weaver before
@@ -294,7 +290,6 @@ namespace Mirror
         // helper function for [SyncVar] GameObjects.
         // IMPORTANT: keep as 'protected', not 'internal', otherwise Weaver
         //            can't resolve it
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected bool SyncVarGameObjectEqual(GameObject newGameObject, uint netIdField)
         {
             uint newNetId = 0;
@@ -315,7 +310,6 @@ namespace Mirror
         }
 
         // helper function for [SyncVar] GameObjects.
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected void SetSyncVarGameObject(GameObject newGameObject, ref GameObject gameObjectField, ulong dirtyBit, ref uint netIdField)
         {
             if (getSyncVarHookGuard(dirtyBit))
@@ -344,7 +338,6 @@ namespace Mirror
 
         // helper function for [SyncVar] GameObjects.
         // -> ref GameObject as second argument makes OnDeserialize processing easier
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected GameObject GetSyncVarGameObject(uint netId, ref GameObject gameObjectField)
         {
             // server always uses the field
@@ -363,7 +356,6 @@ namespace Mirror
         // helper function for [SyncVar] NetworkIdentities.
         // IMPORTANT: keep as 'protected', not 'internal', otherwise Weaver
         //            can't resolve it
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected bool SyncVarNetworkIdentityEqual(NetworkIdentity newIdentity, uint netIdField)
         {
             uint newNetId = 0;
@@ -381,7 +373,6 @@ namespace Mirror
         }
 
         // helper function for [SyncVar] NetworkIdentities.
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected void SetSyncVarNetworkIdentity(NetworkIdentity newIdentity, ref NetworkIdentity identityField, ulong dirtyBit, ref uint netIdField)
         {
             if (getSyncVarHookGuard(dirtyBit))
@@ -406,7 +397,6 @@ namespace Mirror
 
         // helper function for [SyncVar] NetworkIdentities.
         // -> ref GameObject as second argument makes OnDeserialize processing easier
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected NetworkIdentity GetSyncVarNetworkIdentity(uint netId, ref NetworkIdentity identityField)
         {
             // server always uses the field
@@ -421,14 +411,12 @@ namespace Mirror
             return identityField;
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected bool SyncVarEqual<T>(T value, ref T fieldValue)
         {
             // newly initialized or changed value?
             return EqualityComparer<T>.Default.Equals(value, fieldValue);
         }
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
         protected void SetSyncVar<T>(T value, ref T fieldValue, ulong dirtyBit)
         {
             if (logger.LogEnabled()) logger.Log("SetSyncVar " + GetType().Name + " bit [" + dirtyBit + "] " + fieldValue + "->" + value);
@@ -541,7 +529,7 @@ namespace Mirror
         }
 
         // Don't rename. Weaver uses this exact function name.
-        public virtual bool SerializeSyncVars(NetworkWriter writer, bool initialState)
+        protected virtual bool SerializeSyncVars(NetworkWriter writer, bool initialState)
         {
             return false;
 
@@ -555,7 +543,7 @@ namespace Mirror
         }
 
         // Don't rename. Weaver uses this exact function name.
-        public virtual void DeserializeSyncVars(NetworkReader reader, bool initialState)
+        protected virtual void DeserializeSyncVars(NetworkReader reader, bool initialState)
         {
             // SyncVars are read here in subclass
 
@@ -640,24 +628,11 @@ namespace Mirror
             }
         }
 
-        // Deprecated 04/20/2020
-        /// <summary>
-        /// Obsolete: Use <see cref="OnStopClient()">OnStopClient()</see> instead
-        /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Override OnStopClient() instead")]
-        public virtual void OnNetworkDestroy() { }
-
         /// <summary>
         /// This is invoked on clients when the server has caused this object to be destroyed.
         /// <para>This can be used as a hook to invoke effects or do client specific cleanup.</para>
         /// </summary>
-        public virtual void OnStopClient()
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            // backwards compatibility
-            OnNetworkDestroy();
-#pragma warning restore CS0618 // Type or member is obsolete
-        }
+        public virtual void OnStopClient() { }
 
         /// <summary>
         /// This is invoked for NetworkBehaviour objects when they become active on the server.
