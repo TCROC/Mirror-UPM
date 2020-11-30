@@ -121,8 +121,8 @@ namespace Mirror
         /// </summary>
         public NetworkConnection connectionToServer { get; internal set; }
 
+        NetworkConnectionToClient _connectionToClient;
 
-        private NetworkConnectionToClient _connectionToClient;
         /// <summary>
         /// The NetworkConnection associated with this <see cref="NetworkIdentity">NetworkIdentity.</see> This is valid for player and other owned objects in the server.
         /// <para>Use it to return details such as the connection&apos;s identity, IP address and ready status.</para>
@@ -574,7 +574,7 @@ namespace Mirror
             }
         }
 
-        private static NetworkIdentity previousLocalPlayer = null;
+        static NetworkIdentity previousLocalPlayer = null;
         internal void OnStartLocalPlayer()
         {
             if (previousLocalPlayer == this)
@@ -1076,6 +1076,16 @@ namespace Mirror
                 }
             }
 
+            if (changed)
+            {
+                observers.Clear();
+                foreach (NetworkConnection conn in newObservers)
+                {
+                    if (conn != null && conn.isReady)
+                        observers.Add(conn.connectionId, conn);
+                }
+            }
+
             // special case for host mode: we use SetHostVisibility to hide
             // NetworkIdentities that aren't in observer range from host.
             // this is what games like Dota/Counter-Strike do too, where a host
@@ -1102,16 +1112,6 @@ namespace Mirror
                 if (!newObservers.Contains(NetworkServer.localConnection))
                 {
                     OnSetHostVisibility(false);
-                }
-            }
-
-            if (changed)
-            {
-                observers.Clear();
-                foreach (NetworkConnection conn in newObservers)
-                {
-                    if (conn != null && conn.isReady)
-                        observers.Add(conn.connectionId, conn);
                 }
             }
         }
