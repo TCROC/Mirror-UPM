@@ -12,6 +12,10 @@ namespace Mirror.Weaver
         // ulong = 64 bytes
         const int SyncVarLimit = 64;
 
+
+        static string HookParameterMessage(string hookName, TypeReference ValueType)
+            => string.Format("void {0}({1} oldValue, {1} newValue)", hookName, ValueType);
+
         // Get hook method if any
         public static MethodDefinition GetHookMethod(TypeDefinition td, FieldDefinition syncVar)
         {
@@ -38,16 +42,26 @@ namespace Mirror.Weaver
                     if (m.Parameters[0].ParameterType != syncVar.FieldType ||
                         m.Parameters[1].ParameterType != syncVar.FieldType)
                     {
-                        Weaver.Error($"{m.Name} should have signature: public void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}", m);
+                        Weaver.Error($"Wrong type for Parameter in hook for '{syncVar.Name}', hook name '{hookFunctionName}'. " +
+                            $"Method signature should be {HookParameterMessage(hookFunctionName, syncVar.FieldType)}",
+                             syncVar);
+
                         return null;
                     }
                     return m;
                 }
-                Weaver.Error($"{m.Name} should have signature: public void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}", m);
+
+                Weaver.Error($"Hook had wrong parameters for '{syncVar.Name}', hook name '{hookFunctionName}'. " +
+                  $"Method signature should be {HookParameterMessage(hookFunctionName, syncVar.FieldType)}",
+                  syncVar);
+
                 return null;
             }
 
-            Weaver.Error($"No hook implementation found for {syncVar.Name}. Add this method to your class: public void {hookFunctionName}({syncVar.FieldType} oldValue, {syncVar.FieldType} newValue) {{ }}", syncVar);
+            Weaver.Error($"Could not find hook for '{syncVar.Name}', hook name '{hookFunctionName}'. " +
+                   $"Method signature should be {HookParameterMessage(hookFunctionName, syncVar.FieldType)}",
+                   syncVar);
+
             return null;
         }
 
