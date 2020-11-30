@@ -24,7 +24,7 @@ namespace Mirror
 
         public NetworkReader(ArraySegment<byte> buffer)
         {
-            reader = new BinaryReader(new MemoryStream(buffer.Array, buffer.Offset, buffer.Count));
+            reader = new BinaryReader(new MemoryStream(buffer.Array, buffer.Offset, buffer.Count, false), encoding);
         }
 
         // 'int' is the best type for .Position. 'short' is too small if we send >32kb which would result in negative .Position
