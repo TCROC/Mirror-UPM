@@ -680,7 +680,12 @@ namespace Mirror
                     //logger.Log(name + " @ scene: " + gameObject.scene.name + " sceneid reset to 0 because CurrentPrefabStage=" + PrefabStageUtility.GetCurrentPrefabStage() + " PrefabStage=" + PrefabStageUtility.GetPrefabStage(gameObject));
                     // NOTE: might make sense to use GetPrefabStage for asset
                     //       path, but let's not touch it while it works.
+#if UNITY_2020_1_OR_NEWER
+                    string path = PrefabStageUtility.GetCurrentPrefabStage().assetPath;
+#else
                     string path = PrefabStageUtility.GetCurrentPrefabStage().prefabAssetPath;
+#endif
+
                     AssignAssetID(path);
                 }
             }
@@ -921,7 +926,7 @@ namespace Mirror
         ///     </item>
         ///     <item>
         ///         returns true if we have no NetworkVisibility, default objects are visible
-        ///     </item>   
+        ///     </item>
         /// </list>
         /// </summary>
         /// <param name="conn"></param>
@@ -971,7 +976,7 @@ namespace Mirror
         /// <param name="initialState"></param>
         /// <returns></returns>
         /// <remarks>
-        /// vis2k: readstring bug prevention: 
+        /// vis2k: readstring bug prevention:
         /// <see cref="https://issuetracker.unity3d.com/issues/unet-networkwriter-dot-write-causing-readstring-slash-readbytes-out-of-range-errors-in-clients"/>
         /// <list type="bullet">
         ///     <item>
@@ -1198,7 +1203,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Helper function to handle SyncEvent/Command/Rpc
+        /// Helper function to handle Command/Rpc
         /// </summary>
         /// <param name="componentIndex"></param>
         /// <param name="functionHash"></param>
@@ -1227,17 +1232,6 @@ namespace Mirror
             {
                 logger.LogWarning("Component [" + componentIndex + "] not found for [netId=" + netId + "]");
             }
-        }
-
-        /// <summary>
-        /// Runs on client
-        /// </summary>
-        /// <param name="componentIndex"></param>
-        /// <param name="eventHash"></param>
-        /// <param name="reader"></param>
-        internal void HandleSyncEvent(int componentIndex, int eventHash, NetworkReader reader)
-        {
-            HandleRemoteCall(componentIndex, eventHash, MirrorInvokeType.SyncEvent, reader);
         }
 
         /// <summary>
@@ -1556,7 +1550,7 @@ namespace Mirror
         /// <summary>
         /// Marks the identity for future reset, this is because we cant reset the identity during destroy
         /// as people might want to be able to read the members inside OnDestroy(), and we have no way
-        /// of invoking reset after OnDestroy is called. 
+        /// of invoking reset after OnDestroy is called.
         /// </summary>
         internal void Reset()
         {
@@ -1647,7 +1641,7 @@ namespace Mirror
 
 
         /// <summary>
-        /// clear all component's dirty bits no matter what 
+        /// clear all component's dirty bits no matter what
         /// </summary>
         internal void ClearAllComponentsDirtyBits()
         {
