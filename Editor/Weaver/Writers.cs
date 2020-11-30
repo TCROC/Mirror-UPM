@@ -32,7 +32,6 @@ namespace Mirror.Weaver
         /// <para>This method is recursive</para>
         /// </summary>
         /// <param name="variable"></param>
-        /// <param name="recursionCount"></param>
         /// <returns>Returns <see cref="MethodReference"/> or null</returns>
         public static MethodReference GetWriteFunc(TypeReference variable)
         {
@@ -45,7 +44,8 @@ namespace Mirror.Weaver
                 // this try/catch will be removed in future PR and make `GetWriteFunc` throw instead
                 try
                 {
-                    return GenerateWriter(variable);
+                    TypeReference importedVariable = Weaver.CurrentAssembly.MainModule.ImportReference(variable);
+                    return GenerateWriter(importedVariable);
                 }
                 catch (GenerateWriterException e)
                 {
@@ -160,7 +160,7 @@ namespace Mirror.Weaver
                     WeaverTypes.Import(typeof(void)));
 
             writerFunc.Parameters.Add(new ParameterDefinition("writer", ParameterAttributes.None, WeaverTypes.Import<NetworkWriter>()));
-            writerFunc.Parameters.Add(new ParameterDefinition("value", ParameterAttributes.None, Weaver.CurrentAssembly.MainModule.ImportReference(variable)));
+            writerFunc.Parameters.Add(new ParameterDefinition("value", ParameterAttributes.None, variable));
             writerFunc.Body.InitLocals = true;
 
             RegisterWriteFunc(variable, writerFunc);
@@ -218,8 +218,7 @@ namespace Mirror.Weaver
             uint fields = 0;
             foreach (FieldDefinition field in variable.FindAllPublicFields())
             {
-                TypeReference fieldTypeRef = Weaver.CurrentAssembly.MainModule.ImportReference(field.FieldType);
-                MethodReference writeFunc = GetWriteFunc(fieldTypeRef);
+                MethodReference writeFunc = GetWriteFunc(field.FieldType);
                 // need this null check till later PR when GetWriteFunc throws exception instead
                 if (writeFunc == null) { return false; }
 
