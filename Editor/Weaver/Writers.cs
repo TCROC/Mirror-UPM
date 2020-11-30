@@ -22,7 +22,6 @@ namespace Mirror.Weaver
         static void RegisterWriteFunc(TypeReference typeReference, MethodDefinition newWriterFunc)
         {
             writeFuncs[typeReference.FullName] = newWriterFunc;
-            Weaver.WeaveLists.generatedWriteFunctions.Add(newWriterFunc);
 
             Weaver.WeaveLists.ConfirmGeneratedCodeClass();
             Weaver.WeaveLists.generateContainerClass.Methods.Add(newWriterFunc);
@@ -221,19 +220,14 @@ namespace Mirror.Weaver
                 worker.Append(worker.Create(OpCodes.Call, writeFunc));
             }
 
-            if (fields == 0)
-            {
-                Log.Warning($"{variable} has no no public or non-static fields to serialize");
-            }
-
             return true;
         }
 
         static MethodDefinition GenerateArrayWriteFunc(TypeReference variable)
         {
-            if (!variable.IsArrayType())
+            if (variable.IsMultidimensionalArray())
             {
-                throw new GenerateWriterException($"{variable.Name} is an unsupported type. Jagged and multidimensional arrays are not supported", variable);
+                throw new GenerateWriterException($"{variable.Name} is an unsupported type. Multidimensional arrays are not supported", variable);
             }
             MethodDefinition writerFunc = GenerateWriterFunc(variable);
 

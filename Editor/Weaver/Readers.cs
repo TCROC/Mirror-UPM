@@ -98,7 +98,6 @@ namespace Mirror.Weaver
         static void RegisterReadFunc(TypeReference typeReference, MethodDefinition newReaderFunc)
         {
             readFuncs[typeReference.FullName] = newReaderFunc;
-            Weaver.WeaveLists.generatedReadFunctions.Add(newReaderFunc);
 
             Weaver.WeaveLists.ConfirmGeneratedCodeClass();
             Weaver.WeaveLists.generateContainerClass.Methods.Add(newReaderFunc);
@@ -106,9 +105,9 @@ namespace Mirror.Weaver
 
         static MethodDefinition GenerateArrayReadFunc(TypeReference variable)
         {
-            if (!variable.IsArrayType())
+            if (variable.IsMultidimensionalArray())
             {
-                Weaver.Error($"{variable.Name} is an unsupported type. Jagged and multidimensional arrays are not supported", variable);
+                Weaver.Error($"{variable.Name} is an unsupported type. Multidimensional arrays are not supported", variable);
                 return null;
             }
 
@@ -410,11 +409,6 @@ namespace Mirror.Weaver
 
                 worker.Append(worker.Create(OpCodes.Stfld, fieldRef));
                 fields++;
-            }
-
-            if (fields == 0)
-            {
-                Log.Warning($"{variable} has no public or non-static fields to deserialize");
             }
         }
     }
