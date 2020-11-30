@@ -18,10 +18,10 @@ namespace Mirror.Weaver
     /// </summary>
     class NetworkBehaviourProcessor
     {
-        readonly List<FieldDefinition> syncVars = new List<FieldDefinition>();
-        readonly List<FieldDefinition> syncObjects = new List<FieldDefinition>();
+        List<FieldDefinition> syncVars = new List<FieldDefinition>();
+        List<FieldDefinition> syncObjects = new List<FieldDefinition>();
         // <SyncVarField,NetIdField>
-        readonly Dictionary<FieldDefinition, FieldDefinition> syncVarNetIds = new Dictionary<FieldDefinition, FieldDefinition>();
+        Dictionary<FieldDefinition, FieldDefinition> syncVarNetIds = new Dictionary<FieldDefinition, FieldDefinition>();
         readonly List<CmdResult> commands = new List<CmdResult>();
         readonly List<ClientRpcResult> clientRpcs = new List<ClientRpcResult>();
         readonly List<MethodDefinition> targetRpcs = new List<MethodDefinition>();
@@ -51,34 +51,53 @@ namespace Mirror.Weaver
             netBehaviourSubclass = td;
         }
 
-        public void Process()
+        // return true if modified
+        public bool Process()
         {
+            // only process once
+            if (WasProcessed(netBehaviourSubclass))
+            {
+                return false;
+            }
+            Weaver.DLog(netBehaviourSubclass, "Found NetworkBehaviour " + netBehaviourSubclass.FullName);
+
             if (netBehaviourSubclass.HasGenericParameters)
             {
                 Weaver.Error($"{netBehaviourSubclass.Name} cannot have generic parameters", netBehaviourSubclass);
-                return;
+                // originally Process returned true in every case, except if already processed.
+                // maybe return false here in the future.
+                return true;
             }
             Weaver.DLog(netBehaviourSubclass, "Process Start");
             MarkAsProcessed(netBehaviourSubclass);
-            SyncVarProcessor.ProcessSyncVars(netBehaviourSubclass, syncVars, syncObjects, syncVarNetIds);
+
+            // deconstruct tuple and set fields
+            (syncVars, syncVarNetIds) = SyncVarProcessor.ProcessSyncVars(netBehaviourSubclass);
+
+            syncObjects = SyncObjectProcessor.FindSyncObjectsFields(netBehaviourSubclass);
 
             ProcessMethods();
 
             SyncEventProcessor.ProcessEvents(netBehaviourSubclass, eventRpcs, eventRpcInvocationFuncs);
             if (Weaver.WeavingFailed)
             {
-                return;
+                // originally Process returned true in every case, except if already processed.
+                // maybe return false here in the future.
+                return true;
             }
             GenerateConstants();
 
             GenerateSerialization();
             if (Weaver.WeavingFailed)
             {
-                return;
+                // originally Process returned true in every case, except if already processed.
+                // maybe return false here in the future.
+                return true;
             }
 
             GenerateDeSerialization();
             Weaver.DLog(netBehaviourSubclass, "Process Done");
+            return true;
         }
 
         /*
@@ -1003,6 +1022,8 @@ namespace Mirror.Weaver
             });
 
             MethodDefinition rpcCallFunc = RpcProcessor.ProcessRpcCall(netBehaviourSubclass, md, clientRpcAttr);
+            // need null check here because ProcessRpcCall returns null if it can't write all the args
+            if (rpcCallFunc == null) { return; }
 
             MethodDefinition rpcFunc = RpcProcessor.ProcessRpcInvoke(netBehaviourSubclass, md, rpcCallFunc);
             if (rpcFunc != null)

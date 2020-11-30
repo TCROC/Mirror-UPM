@@ -98,19 +98,6 @@ namespace Mirror.Weaver
             }
         }
 
-        static bool ProcessNetworkBehaviourType(TypeDefinition td)
-        {
-            if (!NetworkBehaviourProcessor.WasProcessed(td))
-            {
-                DLog(td, "Found NetworkBehaviour " + td.FullName);
-
-                NetworkBehaviourProcessor proc = new NetworkBehaviourProcessor(td);
-                proc.Process();
-                return true;
-            }
-            return false;
-        }
-
         public static bool IsNetworkBehaviour(TypeDefinition td)
         {
             return td.IsDerivedFrom(WeaverTypes.NetworkBehaviourType);
@@ -146,6 +133,7 @@ namespace Mirror.Weaver
                 {
                     break;
                 }
+
                 try
                 {
                     behaviourClasses.Insert(0, parent);
@@ -162,7 +150,7 @@ namespace Mirror.Weaver
             bool modified = false;
             foreach (TypeDefinition behaviour in behaviourClasses)
             {
-                modified |= ProcessNetworkBehaviourType(behaviour);
+                modified |= new NetworkBehaviourProcessor(behaviour).Process();
             }
             return modified;
         }
@@ -278,7 +266,7 @@ namespace Mirror.Weaver
                     {
                         modified |= WeaveNetworkBehavior(td);
                         modified |= WeaveMessage(td);
-                        modified |= ServerClientAttributeProcessor.ProcessSiteClass(td);
+                        modified |= ServerClientAttributeProcessor.Process(td);
                     }
                 }
                 watch.Stop();
@@ -312,7 +300,7 @@ namespace Mirror.Weaver
 
                 WeaverTypes.SetupTargetTypes(unityAssembly, mirrorAssembly, CurrentAssembly);
                 System.Diagnostics.Stopwatch rwstopwatch = System.Diagnostics.Stopwatch.StartNew();
-                ReaderWriterProcessor.ProcessReadersAndWriters(CurrentAssembly);
+                ReaderWriterProcessor.Process(CurrentAssembly);
                 rwstopwatch.Stop();
                 Console.WriteLine("Find all reader and writers took " + rwstopwatch.ElapsedMilliseconds + " milliseconds");
 
@@ -331,7 +319,7 @@ namespace Mirror.Weaver
                     // this must be done for ALL code, not just NetworkBehaviours
                     try
                     {
-                        PropertySiteProcessor.ProcessSitesModule(moduleDefinition);
+                        PropertySiteProcessor.Process(moduleDefinition);
                     }
                     catch (Exception e)
                     {
@@ -372,9 +360,9 @@ namespace Mirror.Weaver
 
                 try
                 {
-                    foreach (string ass in assemblies)
+                    foreach (string asm in assemblies)
                     {
-                        if (!Weave(ass, unityAssembly, mirrorAssembly, dependencies, unityEngineDLLPath, mirrorNetDLLPath, outputDir))
+                        if (!Weave(asm, unityAssembly, mirrorAssembly, dependencies, unityEngineDLLPath, mirrorNetDLLPath, outputDir))
                         {
                             return false;
                         }

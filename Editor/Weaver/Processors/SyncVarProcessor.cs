@@ -304,15 +304,14 @@ namespace Mirror.Weaver
             }
         }
 
-        public static void ProcessSyncVars(TypeDefinition td, List<FieldDefinition> syncVars, List<FieldDefinition> syncObjects, Dictionary<FieldDefinition, FieldDefinition> syncVarNetIds)
+        public static (List<FieldDefinition> syncVars, Dictionary<FieldDefinition, FieldDefinition> syncVarNetIds) ProcessSyncVars(TypeDefinition td)
         {
-            int numSyncVars = 0;
+            List<FieldDefinition> syncVars = new List<FieldDefinition>();
+            Dictionary<FieldDefinition, FieldDefinition> syncVarNetIds = new Dictionary<FieldDefinition, FieldDefinition>();
 
             // the mapping of dirtybits to sync-vars is implicit in the order of the fields here. this order is recorded in m_replacementProperties.
             // start assigning syncvars at the place the base class stopped, if any
             int dirtyBitCounter = Weaver.GetSyncVarStart(td.BaseType.FullName);
-
-            syncVarNetIds.Clear();
 
             // find syncvars
             foreach (FieldDefinition fd in td.Fields)
@@ -322,13 +321,13 @@ namespace Mirror.Weaver
                     if ((fd.Attributes & FieldAttributes.Static) != 0)
                     {
                         Weaver.Error($"{fd.Name} cannot be static", fd);
-                        return;
+                        continue;
                     }
 
                     if (fd.FieldType.IsArray)
                     {
                         Weaver.Error($"{fd.Name} has invalid type. Use SyncLists instead of arrays", fd);
-                        return;
+                        continue;
                     }
 
                     if (SyncObjectInitializer.ImplementsSyncObject(fd.FieldType))
@@ -341,31 +340,13 @@ namespace Mirror.Weaver
 
                         ProcessSyncVar(td, fd, syncVarNetIds, 1L << dirtyBitCounter);
                         dirtyBitCounter += 1;
-                        numSyncVars += 1;
 
                         if (dirtyBitCounter == SyncVarLimit)
                         {
                             Weaver.Error($"{td.Name} has too many SyncVars. Consider refactoring your class into multiple components", td);
-                            return;
+                            continue;
                         }
                     }
-                }
-
-                if (fd.FieldType.Resolve().ImplementsInterface(WeaverTypes.SyncObjectType))
-                {
-                    if (fd.IsStatic)
-                    {
-                        Weaver.Error($"{fd.Name} cannot be static", fd);
-                        return;
-                    }
-
-                    if (fd.FieldType.Resolve().HasGenericParameters)
-                    {
-                        Weaver.Error($"Cannot use generic SyncObject {fd.Name} directly in NetworkBehaviour. Create a class and inherit from the generic SyncObject instead", fd);
-                        return;
-                    }
-
-                    syncObjects.Add(fd);
                 }
             }
 
@@ -374,8 +355,9 @@ namespace Mirror.Weaver
             {
                 td.Fields.Add(fd);
             }
+            Weaver.SetNumSyncVars(td.FullName, syncVars.Count);
 
-            Weaver.SetNumSyncVars(td.FullName, numSyncVars);
+            return (syncVars, syncVarNetIds);
         }
 
         public static void WriteCallHookMethodUsingArgument(ILProcessor worker, MethodDefinition hookMethod, VariableDefinition oldValue)

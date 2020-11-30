@@ -1,14 +1,12 @@
+// Injects server/client active checks for [Server/Client] attributes
 using Mono.CecilX;
 using Mono.CecilX.Cil;
 
 namespace Mirror.Weaver
 {
-    /// <summary>
-    /// processes SyncVars, Cmds, Rpcs, etc. of NetworkBehaviours
-    /// </summary>
     static class ServerClientAttributeProcessor
     {
-        public static bool ProcessSiteClass(TypeDefinition td)
+        public static bool Process(TypeDefinition td)
         {
             bool modified = false;
             foreach (MethodDefinition md in td.Methods)
@@ -18,7 +16,7 @@ namespace Mirror.Weaver
 
             foreach (TypeDefinition nested in td.NestedTypes)
             {
-                modified |= ProcessSiteClass(nested);
+                modified |= Process(nested);
             }
             return modified;
         }
