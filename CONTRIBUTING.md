@@ -112,17 +112,19 @@ Micro-optimizations try to improve the performance of an application by replacin
 * eliminate an allocation.
 * replace `Vector3.Distance(a,b) < K` with `Vector3.SqrMagnitude(b - a) < K * K`
 * convert a class to struct
+* manually inlining small functions
+* rewriting a function in native code
 
 Macro-optimizations try to improve the performance of an application by changing the algorithm.  Some examples include:
 * Serialize a message once O(1),  instead of for every single client O(n)
-* Change interest management algorithm,  as of this writing every object checks every other object O(n^2),  it could be replaced by a sweep and prune algorithm O(n log n)
+* Change interest management algorithm,  as of this writing every object checks every other object O(n^2),  it could be replaced by spatial hashing, which is O(n)
 * When synchronizing movement,  instead of synchronizing every position change,  you could synchronize the velocity and let the other side predict the position.
 
 Macro-optimizations tend to change the **scalability** of mirror,  by changing an algorithm, you may now support 10x more customers on the same hardware, it is even possible for a macro optimization to make performance worse for small numbers. Macro optimization usually make a really big difference, but are much harder to make. 
 
 Micro-optimizations tend to change the performance of mirror in a linear way. There are some micro optimizations that make a huge impact on performance such as eliminating allocations in the hot path.
 
-We prefer readable code over optimal code. We do not like any kind of optimization if it makes the code less readable (they generally do).  For that reason,  we require that both micro and macro optimization pull requests come with screenshots profiling a real game or at least a synthetic **representative** test. It is not enough to show that one operation is faster than the other,  you must prove that this makes a significant difference in Mirror or in a real game using Mirror.
+We prefer readable code over optimal code. We do not like any kind of optimization if it makes the code less readable (they generally do).  For that reason,  we require that both micro and macro optimization pull requests come with screenshots profiling a real game or at least a benchmark with a realistic Mirror workload. It is not enough to show that one operation is faster than the other, you must prove that this will make a difference for actual games using Mirror.
 
 If your optimization pull request does not come with profiling data showing real gains in a meaningful test is has no hope of getting merged.
 
