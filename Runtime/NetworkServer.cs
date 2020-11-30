@@ -600,20 +600,15 @@ namespace Mirror
             {
                 identity.assetId = assetId;
             }
-            return InternalAddPlayerForConnection(conn, player);
+            return AddPlayerForConnection(conn, player);
         }
 
         public static bool AddPlayerForConnection(NetworkConnection conn, GameObject player)
         {
-            return InternalAddPlayerForConnection(conn, player);
-        }
-
-        internal static bool InternalAddPlayerForConnection(NetworkConnection conn, GameObject playerGameObject)
-        {
-            NetworkIdentity identity = playerGameObject.GetComponent<NetworkIdentity>();
+            NetworkIdentity identity = player.GetComponent<NetworkIdentity>();
             if (identity == null)
             {
-                Debug.Log("AddPlayer: playerGameObject has no NetworkIdentity. Please add a NetworkIdentity to " + playerGameObject);
+                Debug.Log("AddPlayer: playerGameObject has no NetworkIdentity. Please add a NetworkIdentity to " + player);
                 return false;
             }
             identity.Reset();
@@ -637,9 +632,9 @@ namespace Mirror
                 return true;
             }
 
-            if (LogFilter.Debug) Debug.Log("Adding new playerGameObject object netId: " + playerGameObject.GetComponent<NetworkIdentity>().netId + " asset ID " + playerGameObject.GetComponent<NetworkIdentity>().assetId);
+            if (LogFilter.Debug) Debug.Log("Adding new playerGameObject object netId: " + identity.netId + " asset ID " + identity.assetId);
 
-            FinishPlayerForConnection(conn, identity, playerGameObject);
+            FinishPlayerForConnection(conn, identity, player);
             if (identity.localPlayerAuthority)
             {
                 identity.SetClientOwner(conn);
