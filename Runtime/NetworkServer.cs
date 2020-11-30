@@ -202,13 +202,13 @@ namespace Mirror
             RemoveConnection(0);
         }
 
-        internal static void ActivateLocalClientScene()
+        internal static void ActivateHostScene()
         {
             foreach (NetworkIdentity identity in NetworkIdentity.spawned.Values)
             {
                 if (!identity.isClient)
                 {
-                    if (LogFilter.Debug) Debug.Log("ActivateClientScene " + identity.netId + " " + identity);
+                    if (LogFilter.Debug) Debug.Log("ActivateHostScene " + identity.netId + " " + identity);
 
                     identity.OnStartClient();
                 }
@@ -239,7 +239,7 @@ namespace Mirror
                     {
                         // use local connection directly because it doesn't send via transport
                         if (kvp.Value is ULocalConnectionToClient)
-                            result &= localConnection.Send(segment);
+                            result &= kvp.Value.Send(segment);
                         // gather all internet connections
                         else
                             connectionIdsCache.Add(kvp.Key);
@@ -308,7 +308,7 @@ namespace Mirror
                 {
                     // use local connection directly because it doesn't send via transport
                     if (kvp.Value is ULocalConnectionToClient)
-                        result &= localConnection.Send(segment);
+                        result &= kvp.Value.Send(segment);
                     // gather all internet connections
                     else
                         connectionIdsCache.Add(kvp.Key);
@@ -392,7 +392,7 @@ namespace Mirror
 
                             // use local connection directly because it doesn't send via transport
                             if (kvp.Value is ULocalConnectionToClient)
-                                result &= localConnection.Send(segment);
+                                result &= kvp.Value.Send(segment);
                             // gather all internet connections
                             else
                                 connectionIdsCache.Add(kvp.Key);
