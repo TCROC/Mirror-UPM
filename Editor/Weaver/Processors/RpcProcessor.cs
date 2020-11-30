@@ -101,18 +101,5 @@ namespace Mirror.Weaver
 
             return rpc;
         }
-
-        public static bool ProcessMethodsValidateRpc(MethodDefinition md)
-        {
-            if (md.IsStatic)
-            {
-                Weaver.Error($"{md.Name} must not be static", md);
-                return false;
-            }
-
-            // validate
-            return NetworkBehaviourProcessor.ProcessMethodsValidateFunction(md) &&
-                   NetworkBehaviourProcessor.ProcessMethodsValidateParameters(md, RemoteCallType.ClientRpc);
-        }
     }
 }

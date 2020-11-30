@@ -874,7 +874,21 @@ namespace Mirror.Weaver
             collection.Add(new ParameterDefinition("senderConnection", ParameterAttributes.None, Weaver.CurrentAssembly.MainModule.ImportReference(WeaverTypes.NetworkConnectionType)));
         }
 
-        public static bool ProcessMethodsValidateFunction(MethodReference md)
+        // check if a Command/TargetRpc/Rpc function & parameters are valid for weaving
+        public static bool ValidateRemoteCallAndParameters(MethodDefinition method, RemoteCallType callType)
+        {
+            if (method.IsStatic)
+            {
+                Weaver.Error($"{method.Name} must not be static", method);
+                return false;
+            }
+
+            return ValidateFunction(method) &&
+                   ValidateParameters(method, callType);
+        }
+
+        // check if a Command/TargetRpc/Rpc function is valid for weaving
+        static bool ValidateFunction(MethodReference md)
         {
             if (md.ReturnType.FullName == WeaverTypes.IEnumeratorType.FullName)
             {
@@ -894,15 +908,13 @@ namespace Mirror.Weaver
             return true;
         }
 
-        public static bool ProcessMethodsValidateParameters(MethodReference method, RemoteCallType callType)
+        // check if all Command/TargetRpc/Rpc function's parameters are valid for weaving
+        static bool ValidateParameters(MethodReference method, RemoteCallType callType)
         {
             for (int i = 0; i < method.Parameters.Count; ++i)
             {
                 ParameterDefinition param = method.Parameters[i];
-
-                bool valid = ValidateParameter(method, param, callType, i == 0);
-
-                if (!valid)
+                if (!ValidateParameter(method, param, callType, i == 0))
                 {
                     return false;
                 }
@@ -910,6 +922,7 @@ namespace Mirror.Weaver
             return true;
         }
 
+        // validate parameters for a remote function call like Rpc/Cmd
         static bool ValidateParameter(MethodReference method, ParameterDefinition param, RemoteCallType callType, bool firstParam)
         {
             bool isNetworkConnection = param.ParameterType.FullName == WeaverTypes.NetworkConnectionType.FullName;
@@ -1001,7 +1014,7 @@ namespace Mirror.Weaver
                 return;
             }
 
-            if (!RpcProcessor.ProcessMethodsValidateRpc(md))
+            if (!ValidateRemoteCallAndParameters(md, RemoteCallType.ClientRpc))
             {
                 return;
             }
@@ -1040,7 +1053,7 @@ namespace Mirror.Weaver
                 return;
             }
 
-            if (!TargetRpcProcessor.ProcessMethodsValidateTargetRpc(md))
+            if (!ValidateRemoteCallAndParameters(md, RemoteCallType.TargetRpc))
                 return;
 
             if (names.Contains(md.Name))
@@ -1068,7 +1081,7 @@ namespace Mirror.Weaver
                 return;
             }
 
-            if (!CommandProcessor.ProcessMethodsValidateCommand(md))
+            if (!ValidateRemoteCallAndParameters(md, RemoteCallType.Command))
                 return;
 
             if (names.Contains(md.Name))

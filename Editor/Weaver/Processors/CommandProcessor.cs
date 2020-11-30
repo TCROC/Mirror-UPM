@@ -123,18 +123,5 @@ namespace Mirror.Weaver
                 }
             }
         }
-
-        public static bool ProcessMethodsValidateCommand(MethodDefinition md)
-        {
-            if (md.IsStatic)
-            {
-                Weaver.Error($"{md.Name} cannot be static", md);
-                return false;
-            }
-
-            // validate
-            return NetworkBehaviourProcessor.ProcessMethodsValidateFunction(md) &&
-                   NetworkBehaviourProcessor.ProcessMethodsValidateParameters(md, RemoteCallType.Command);
-        }
     }
 }
