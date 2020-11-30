@@ -94,6 +94,24 @@ namespace Mirror.Weaver
             return true;
         }
 
+        public static bool IsArraySegment(this TypeDefinition td)
+        {
+            return td.FullName.StartsWith("System.ArraySegment`1", System.StringComparison.Ordinal);
+        }
+        public static bool IsArraySegment(this TypeReference td)
+        {
+            return td.FullName.StartsWith("System.ArraySegment`1", System.StringComparison.Ordinal);
+        }
+
+        public static bool IsList(this TypeDefinition td)
+        {
+            return td.FullName.StartsWith("System.Collections.Generic.List`1", System.StringComparison.Ordinal);
+        }
+        public static bool IsList(this TypeReference td)
+        {
+            return td.FullName.StartsWith("System.Collections.Generic.List`1", System.StringComparison.Ordinal);
+        }
+
         public static bool CanBeResolved(this TypeReference parent)
         {
             while (parent != null)
@@ -122,10 +140,15 @@ namespace Mirror.Weaver
         }
 
 
-        // Given a method of a generic class such as ArraySegment<T>.get_Count,
-        // and a generic instance such as ArraySegment<int>
-        // Creates a reference to the specialized method  ArraySegment<int>.get_Count
-        // Note that calling ArraySegment<T>.get_Count directly gives an invalid IL error
+        /// <summary>
+        /// Given a method of a generic class such as ArraySegment`T.get_Count,
+        /// and a generic instance such as ArraySegment`int
+        /// Creates a reference to the specialized method  ArraySegment`int`.get_Count 
+        /// <para> Note that calling ArraySegment`T.get_Count directly gives an invalid IL error </para>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="instanceType"></param>
+        /// <returns></returns>
         public static MethodReference MakeHostInstanceGeneric(this MethodReference self, GenericInstanceType instanceType)
         {
             MethodReference reference = new MethodReference(self.Name, self.ReturnType, instanceType)
