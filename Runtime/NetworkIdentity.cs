@@ -1168,7 +1168,7 @@ namespace Mirror
                     $"  * Was there an exception in {comp.GetType()}'s OnSerialize/OnDeserialize code?\n" +
                     $"  * Are the server and client the exact same project?\n" +
                     $"  * Maybe this OnDeserialize call was meant for another GameObject? The sceneIds can easily get out of sync if the Hierarchy was modified only in the client OR the server. Try rebuilding both.\n\n" +
-                    $"Exeption {e}");
+                    $"Exception {e}");
             }
 
             // now the reader should be EXACTLY at 'before + size'.
@@ -1210,40 +1210,29 @@ namespace Mirror
         /// <param name="invokeType"></param>
         /// <param name="reader"></param>
         /// <param name="senderConnection"></param>
-        void HandleRemoteCall(int componentIndex, int functionHash, MirrorInvokeType invokeType, NetworkReader reader, NetworkConnectionToClient senderConnection = null)
+        internal void HandleRemoteCall(int componentIndex, int functionHash, MirrorInvokeType invokeType, NetworkReader reader, NetworkConnectionToClient senderConnection = null)
         {
             // check if unity object has been destroyed
             if (this == null)
             {
-                logger.LogWarning(invokeType + " [" + functionHash + "] received for deleted object [netId=" + netId + "]");
+                logger.LogWarning($"{invokeType} [{functionHash}] received for deleted object [netId={netId}]");
                 return;
             }
 
             // find the right component to invoke the function on
-            if (0 <= componentIndex && componentIndex < NetworkBehaviours.Length)
+            if (componentIndex < 0 || componentIndex >= NetworkBehaviours.Length)
             {
-                NetworkBehaviour invokeComponent = NetworkBehaviours[componentIndex];
-                if (!RemoteCallHelper.InvokeHandlerDelegate(functionHash, invokeType, reader, invokeComponent, senderConnection))
-                {
-                    logger.LogError("Found no receiver for incoming " + invokeType + " [" + functionHash + "] on " + gameObject + ",  the server and client should have the same NetworkBehaviour instances [netId=" + netId + "].");
-                }
+                logger.LogWarning($"Component [{componentIndex}] not found for [netId={netId}]");
+                return;
             }
-            else
-            {
-                logger.LogWarning("Component [" + componentIndex + "] not found for [netId=" + netId + "]");
-            }
-        }
 
-        /// <summary>
-        /// Runs on server
-        /// </summary>
-        /// <param name="componentIndex"></param>
-        /// <param name="cmdHash"></param>
-        /// <param name="reader"></param>
-        /// <param name="senderConnection"></param>
-        internal void HandleCommand(int componentIndex, int cmdHash, NetworkReader reader, NetworkConnectionToClient senderConnection)
-        {
-            HandleRemoteCall(componentIndex, cmdHash, MirrorInvokeType.Command, reader, senderConnection);
+
+            NetworkBehaviour invokeComponent = NetworkBehaviours[componentIndex];
+
+            if (!RemoteCallHelper.InvokeHandlerDelegate(functionHash, invokeType, reader, invokeComponent, senderConnection))
+            {
+                logger.LogError($"Found no receiver for incoming {invokeType} [{functionHash}] on {gameObject.name}, the server and client should have the same NetworkBehaviour instances [netId={netId}].");
+            }
         }
 
         /// <summary>
@@ -1272,17 +1261,6 @@ namespace Mirror
                 // error can be logged later
                 return default;
             }
-        }
-
-        /// <summary>
-        /// Runs on client
-        /// </summary>
-        /// <param name="componentIndex"></param>
-        /// <param name="rpcHash"></param>
-        /// <param name="reader"></param>
-        internal void HandleRPC(int componentIndex, int rpcHash, NetworkReader reader)
-        {
-            HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader);
         }
 
         internal void ClearObservers()
