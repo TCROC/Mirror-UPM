@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Mirror.RemoteCalls;
 using UnityEngine;
 
@@ -236,7 +237,6 @@ namespace Mirror
             if (localConnection != null)
             {
                 localConnection.Disconnect();
-                localConnection.Dispose();
                 localConnection = null;
             }
             RemoveConnection(0);
@@ -467,13 +467,23 @@ namespace Mirror
         /// </summary>
         public static void DisconnectAllConnections()
         {
-            foreach (NetworkConnection conn in connections.Values)
+            // disconnect and remove all connections.
+            // we can not use foreach here because if
+            //   conn.Disconnect -> Transport.ServerDisconnect calls
+            //   OnDisconnect -> NetworkServer.OnDisconnect(connectionId)
+            // immediately then OnDisconnect would remove the connection while
+            // we are iterating here.
+            //   see also: https://github.com/vis2k/Mirror/issues/2357
+            // this whole process should be simplified some day.
+            // until then, let's copy .Values to avoid InvalidOperatinException.
+            // note that this is only called when stopping the server, so the
+            // copy is no performance problem.
+            foreach (NetworkConnection conn in connections.Values.ToList())
             {
                 conn.Disconnect();
                 // call OnDisconnected unless local player in host mode
                 if (conn.connectionId != NetworkConnection.LocalConnectionId)
                     OnDisconnected(conn);
-                conn.Dispose();
             }
             connections.Clear();
         }
@@ -499,17 +509,7 @@ namespace Mirror
 
             // Check for dead clients but exclude the host client because it
             // doesn't ping itself and therefore may appear inactive.
-            if (disconnectInactiveConnections)
-            {
-                foreach (NetworkConnectionToClient conn in connections.Values)
-                {
-                    if (!conn.IsClientAlive())
-                    {
-                        logger.LogWarning($"Disconnecting {conn} for inactivity!");
-                        conn.Disconnect();
-                    }
-                }
-            }
+            CheckForInavtiveConnections();
 
             // update all server objects
             foreach (KeyValuePair<uint, NetworkIdentity> kvp in NetworkIdentity.spawned)
@@ -524,6 +524,21 @@ namespace Mirror
                     // spawned list should have no null entries because we
                     // always call Remove in OnObjectDestroy everywhere.
                     logger.LogWarning("Found 'null' entry in spawned list for netId=" + kvp.Key + ". Please call NetworkServer.Destroy to destroy networked objects. Don't use GameObject.Destroy.");
+                }
+            }
+        }
+
+        static void CheckForInavtiveConnections()
+        {
+            if (!disconnectInactiveConnections)
+                return;
+
+            foreach (NetworkConnectionToClient conn in connections.Values)
+            {
+                if (!conn.IsAlive(disconnectInactiveTimeout))
+                {
+                    logger.LogWarning($"Disconnecting {conn} for inactivity!");
+                    conn.Disconnect();
                 }
             }
         }

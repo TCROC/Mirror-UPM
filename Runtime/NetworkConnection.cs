@@ -14,7 +14,7 @@ namespace Mirror
     /// <para>NetworkConnection objects also act as observers for networked objects. When a connection is an observer of a networked object with a NetworkIdentity, then the object will be visible to corresponding client for the connection, and incremental state changes will be sent to the client.</para>
     /// <para>There are many virtual functions on NetworkConnection that allow its behaviour to be customized. NetworkClient and NetworkServer can both be made to instantiate custom classes derived from NetworkConnection by setting their networkConnectionClass member variable.</para>
     /// </remarks>
-    public abstract class NetworkConnection : IDisposable
+    public abstract class NetworkConnection
     {
         public const int LocalConnectionId = 0;
         static readonly ILogger logger = LogFactory.GetLogger<NetworkConnection>();
@@ -105,28 +105,6 @@ namespace Mirror
         internal NetworkConnection(int networkConnectionId) : this()
         {
             connectionId = networkConnectionId;
-        }
-
-        ~NetworkConnection()
-        {
-            Dispose(false);
-        }
-
-        /// <summary>
-        /// Disposes of this connection, releasing channel buffers that it holds.
-        /// </summary>
-        public void Dispose()
-        {
-            Dispose(true);
-            // Take yourself off the Finalization queue
-            // to prevent finalization code for this object
-            // from executing a second time.
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            clientOwnedObjects.Clear();
         }
 
         /// <summary>
@@ -293,16 +271,18 @@ namespace Mirror
             }
         }
 
-        // Failsafe to kick clients that have stopped sending anything to the server.
-        // Clients Ping the server every 2 seconds but transports are unreliable
-        // when it comes to properly generating Disconnect messages to the server.
-        // This cannot be abstract because then NetworkConnectionToServer
-        // would require and override that would never be called
-        // This is overriden in NetworkConnectionToClient.
-        internal virtual bool IsClientAlive()
-        {
-            return true;
-        }
+        /// <summary>
+        /// Checks if cliet has sent a message within timeout
+        /// <para>
+        /// Some transports are unreliable at sending disconnect message to the server
+        /// so this acts as a failsafe to make sure clients are kicked
+        /// </para>
+        /// <para>
+        /// Client should send ping message to server every 2 seconds to keep this alive
+        /// </para>
+        /// </summary>
+        /// <returns>True if server has recently recieved a message</returns>
+        internal virtual bool IsAlive(float timeout) => Time.time - lastMessageTime < timeout;
 
         internal void AddOwnedObject(NetworkIdentity obj)
         {
