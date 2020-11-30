@@ -12,9 +12,14 @@ namespace Mirror
 
         internal void InternalConnectLocalServer()
         {
+            // create local connection to server
             connection = new ULocalConnectionToServer();
             SetHandlers(connection);
-            connection.connectionId = NetworkServer.AddLocalClient(this);
+
+            // create server connection to local client
+            ULocalConnectionToClient connectionToClient = new ULocalConnectionToClient(this);
+            NetworkServer.SetLocalConnection(connectionToClient);
+
             connectState = ConnectState.Connected;
 
             active = true;
@@ -31,7 +36,7 @@ namespace Mirror
             {
                 packetQueue.Enqueue(MessagePacker.Pack(new DisconnectMessage()));
             }
-            NetworkServer.RemoveLocalClient();
+            NetworkServer.RemoveLocalConnection();
         }
 
         internal override void Update()
