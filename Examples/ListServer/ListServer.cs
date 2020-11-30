@@ -1,7 +1,8 @@
-﻿// add this component to the NetworkManager
+// add this component to the NetworkManager
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
@@ -101,17 +102,20 @@ namespace Mirror.Examples.ListServer
             BinaryWriter writer = new BinaryWriter(new MemoryStream());
 
             // create message
-            // NOTE: you can send anything that you want, as long as you also
-            //       receive it in ParseMessage
-            char[] titleChars = gameServerTitle.ToCharArray();
-            writer.Write((ushort)titleChars.Length);
-            writer.Write(titleChars);
             writer.Write((ushort)NetworkServer.connections.Count);
             writer.Write((ushort)NetworkManager.singleton.maxConnections);
-
-            // send it
+            byte[] titleBytes = Encoding.UTF8.GetBytes(gameServerTitle);
+            writer.Write((ushort)titleBytes.Length);
+            writer.Write(titleBytes);
             writer.Flush();
-            gameServerToListenConnection.Send(((MemoryStream)writer.BaseStream).ToArray());
+
+            // list server only allows up to 128 bytes per message
+            if (writer.BaseStream.Position <= 128)
+            {
+                // send it
+                gameServerToListenConnection.Send(((MemoryStream)writer.BaseStream).ToArray());
+            }
+            else Debug.LogError("[List Server] List Server will reject messages longer than 128 bytes. Please use a shorter title.");
         }
 
         void TickGameServer()
@@ -141,18 +145,17 @@ namespace Mirror.Examples.ListServer
 
         void ParseMessage(byte[] bytes)
         {
-            // use binary reader because our NetworkReader uses custom string reading with bools
-            // => we don't use ReadString here because the listen server doesn't
-            //    know C#'s '7-bit-length + utf8' encoding for strings
+            // note: we don't use ReadString here because the list server
+            //       doesn't know C#'s '7-bit-length + utf8' encoding for strings
             BinaryReader reader = new BinaryReader(new MemoryStream(bytes, false), Encoding.UTF8);
             ushort ipLength = reader.ReadUInt16();
-            string ip = new string(reader.ReadChars(ipLength));
+            string ip = Encoding.UTF8.GetString(reader.ReadBytes(ipLength));
             //ushort port = reader.ReadUInt16(); <- not all Transports use a port. assume default.
-            ushort titleLength = reader.ReadUInt16();
-            string title = new string(reader.ReadChars(titleLength));
             ushort players = reader.ReadUInt16();
             ushort capacity = reader.ReadUInt16();
-            //Debug.Log("PARSED: ip=" + ip + /*" port=" + port +*/ " title=" + title + " players=" + players + " capacity= " + capacity);
+            ushort titleLength = reader.ReadUInt16();
+            string title = Encoding.UTF8.GetString(reader.ReadBytes(titleLength));
+            //Debug.Log("PARSED: ip=" + ip + /*" port=" + port +*/ " players=" + players + " capacity= " + capacity + " title=" + title);
 
             // build key
             string key = ip/* + ":" + port*/;
