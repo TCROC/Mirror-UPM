@@ -225,7 +225,7 @@ namespace Mirror
         {
             // pack message and send
             byte[] message = MessagePacker.PackMessage(msgType, msg);
-            return SendBytes(message, channelId);
+            return Send(message, channelId);
         }
 
         /// <summary>
@@ -240,29 +240,69 @@ namespace Mirror
             // pack message and send
             byte[] message = MessagePacker.Pack(msg);
             NetworkDiagnostics.OnSend(msg, channelId, message.Length, 1);
-            return SendBytes(message, channelId);
+            return Send(message, channelId);
         }
 
-        // internal because no one except Mirror should send bytes directly to
-        // the client. they would be detected as a message. send messages instead.
-        internal virtual bool SendBytes(byte[] bytes, int channelId = Channels.DefaultReliable)
+        // validate packet size before sending. show errors if too big/small.
+        // => it's best to check this here, we can't assume that all transports
+        //    would check max size and show errors internally. best to do it
+        //    in one place in hlapi.
+        // => it's important to log errors, so the user knows what went wrong.
+        static bool ValidatePacketSize(byte[] bytes, int channelId)
         {
-            if (logNetworkMessages) Debug.Log("ConnectionSend con:" + connectionId + " bytes:" + BitConverter.ToString(bytes));
-
             if (bytes.Length > Transport.activeTransport.GetMaxPacketSize(channelId))
             {
-                Debug.LogError("NetworkConnection.SendBytes cannot send packet larger than " + Transport.activeTransport.GetMaxPacketSize(channelId) + " bytes");
+                Debug.LogError("NetworkConnection.ValidatePacketSize: cannot send packet larger than " + Transport.activeTransport.GetMaxPacketSize(channelId) + " bytes");
                 return false;
             }
 
             if (bytes.Length == 0)
             {
                 // zero length packets getting into the packet queues are bad.
-                Debug.LogError("NetworkConnection.SendBytes cannot send zero bytes");
+                Debug.LogError("NetworkConnection.ValidatePacketSize: cannot send zero bytes");
                 return false;
             }
 
-            return TransportSend(channelId, bytes);
+            // good size
+            return true;
+        }
+
+        // internal because no one except Mirror should send bytes directly to
+        // the client. they would be detected as a message. send messages instead.
+        internal virtual bool Send(byte[] bytes, int channelId = Channels.DefaultReliable)
+        {
+            if (logNetworkMessages) Debug.Log("ConnectionSend con:" + connectionId + " bytes:" + BitConverter.ToString(bytes));
+
+            // validate packet size first.
+            if (ValidatePacketSize(bytes, channelId))
+            {
+                // send to client or server
+                if (Transport.activeTransport.ClientConnected())
+                {
+                    return Transport.activeTransport.ClientSend(channelId, bytes);
+                }
+                else if (Transport.activeTransport.ServerActive())
+                {
+                    return Transport.activeTransport.ServerSend(connectionId, channelId, bytes);
+                }
+            }
+            return false;
+        }
+
+        // Send to many. basically Transport.Send(connections) + checks.
+        internal static bool Send(List<int> connectionIds, byte[] bytes, int channelId = Channels.DefaultReliable)
+        {
+            // validate packet size first.
+            if (ValidatePacketSize(bytes, channelId))
+            {
+                // only the server sends to many, we don't have that function on
+                // a client.
+                if (Transport.activeTransport.ServerActive())
+                {
+                    return Transport.activeTransport.ServerSend(connectionIds, channelId, bytes);
+                }
+            }
+            return false;
         }
 
         public override string ToString()
@@ -369,25 +409,6 @@ namespace Mirror
                 Debug.LogError("Closed connection: " + connectionId + ". Invalid message header.");
                 Disconnect();
             }
-        }
-
-        /// <summary>
-        /// This virtual function allows custom network connection classes to process data send by the application before it goes to the network transport layer.
-        /// </summary>
-        /// <param name="channelId">Channel to send data on.</param>
-        /// <param name="bytes">Data to send.</param>
-        /// <returns></returns>
-        public virtual bool TransportSend(int channelId, byte[] bytes)
-        {
-            if (Transport.activeTransport.ClientConnected())
-            {
-                return Transport.activeTransport.ClientSend(channelId, bytes);
-            }
-            else if (Transport.activeTransport.ServerActive())
-            {
-                return Transport.activeTransport.ServerSend(connectionId, channelId, bytes);
-            }
-            return false;
         }
 
         internal void AddOwnedObject(NetworkIdentity obj)
