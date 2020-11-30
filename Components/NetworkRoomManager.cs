@@ -160,8 +160,7 @@ namespace Mirror
                 return;
 
             // replace room player with game player
-            NetworkServer.ReplacePlayerForConnection(conn, gamePlayer);
-            roomPlayer.GetComponent<NetworkIdentity>().AssignClientAuthority(conn);
+            NetworkServer.ReplacePlayerForConnection(conn, gamePlayer, true);
         }
 
         /// <summary>
@@ -613,7 +612,7 @@ namespace Mirror
             {
                 GUILayout.BeginArea(new Rect(Screen.width - 150f, 10f, 140f, 30f));
                 if (GUILayout.Button("Return to Room"))
-                    SceneManager.LoadScene(RoomScene);
+                    ServerChangeScene(RoomScene);
                 GUILayout.EndArea();
             }
 
