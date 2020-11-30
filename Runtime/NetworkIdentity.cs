@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Security.Cryptography;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -180,7 +179,11 @@ namespace Mirror
 
         // persistent scene id <sceneHash/32,sceneId/32>
         // (see AssignSceneID comments)
+        //  suppress "Field 'NetworkIdentity.m_SceneId' is never assigned to, and will always have its default value 0"
+        // when building standalone
+        #pragma warning disable CS0649
         [SerializeField] ulong m_SceneId;
+        #pragma warning restore CS0649 
 
         // keep track of all sceneIds to detect scene duplicates
         static readonly Dictionary<ulong, NetworkIdentity> sceneIds = new Dictionary<ulong, NetworkIdentity>();
@@ -311,7 +314,7 @@ namespace Mirror
             {
                 return false;
             }
-            prefab = (GameObject)PrefabUtility.GetCorrespondingObjectFromSource(gameObject);
+            prefab = PrefabUtility.GetCorrespondingObjectFromSource(gameObject);
 
             if (prefab == null)
             {
@@ -649,7 +652,7 @@ namespace Mirror
             // (jumping back later is WAY faster than allocating a temporary
             //  writer for the payload, then writing payload.size, payload)
             int headerPosition = writer.Position;
-            writer.WriteInt32((int)0);
+            writer.WriteInt32(0);
             int contentPosition = writer.Position;
 
             // write payload
@@ -661,7 +664,7 @@ namespace Mirror
             catch (Exception e)
             {
                 // show a detailed error and let the user know what went wrong
-                Debug.LogError("OnSerialize failed for: object=" + name + " component=" + comp.GetType() + " sceneId=" + m_SceneId.ToString("X") + "\n\n" + e.ToString());
+                Debug.LogError("OnSerialize failed for: object=" + name + " component=" + comp.GetType() + " sceneId=" + m_SceneId.ToString("X") + "\n\n" + e);
             }
             int endPosition = writer.Position;
 
