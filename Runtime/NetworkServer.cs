@@ -916,7 +916,7 @@ namespace Mirror
             return true;
         }
 
-        static bool GetNetworkIdentity(GameObject go, out NetworkIdentity identity)
+        internal static bool GetNetworkIdentity(GameObject go, out NetworkIdentity identity)
         {
             identity = go.GetComponent<NetworkIdentity>();
             if (identity == null)
@@ -1316,9 +1316,10 @@ namespace Mirror
             return null;
         }
 
-        static bool ValidateSceneObject(NetworkIdentity identity)
+        internal static bool ValidateSceneObject(NetworkIdentity identity)
         {
-            if (identity.gameObject.hideFlags == HideFlags.NotEditable || identity.gameObject.hideFlags == HideFlags.HideAndDontSave)
+            if (identity.gameObject.hideFlags == HideFlags.NotEditable ||
+                identity.gameObject.hideFlags == HideFlags.HideAndDontSave)
                 return false;
 
 #if UNITY_EDITOR
@@ -1337,8 +1338,9 @@ namespace Mirror
         /// <returns>Success if objects where spawned.</returns>
         public static bool SpawnObjects()
         {
+            // only if server active
             if (!active)
-                return true;
+                return false;
 
             NetworkIdentity[] identities = Resources.FindObjectsOfTypeAll<NetworkIdentity>();
             foreach (NetworkIdentity identity in identities)
