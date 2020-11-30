@@ -93,7 +93,7 @@ jobs:
           done
           for upmParentFolder in $UPM_FOLDER_CONTENTS
           do
-          test "$upmParentFolder" = "$UPM_FOLDER_CONTENTS/Tests" && continue # don't include the Tests folder
+          [[ "$upmParentFolder" == *"Tests"* ]] && continue # don't include any folders containing the name Tests
           if [[ "$upmParentFolder" != "" && "$theirTag" == *"$excludedSubstring"* ]]; then
             echo "Moving file at path $GITHUB_WORKSPACE/theirRepo/$upmFile"
             sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmParentFolder"/* "$GITHUB_WORKSPACE/myRepo/"
