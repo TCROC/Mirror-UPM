@@ -334,7 +334,6 @@ namespace Mirror
         /// <summary>
         /// This starts a new server.
         /// </summary>
-        /// <returns></returns>
         public void StartServer()
         {
             mode = NetworkManagerMode.ServerOnly;
@@ -638,7 +637,8 @@ namespace Mirror
 
             // If this is the host player, StopServer will already be changing scenes.
             // Check loadingSceneAsync to ensure we don't double-invoke the scene change.
-            if (!string.IsNullOrEmpty(offlineScene) && !IsSceneActive(offlineScene) && loadingSceneAsync == null)
+            // Check if NetworkServer.active because we can get here via Disconnect before server has started to change scenes.
+            if (!string.IsNullOrEmpty(offlineScene) && !IsSceneActive(offlineScene) && loadingSceneAsync == null && !NetworkServer.active)
             {
                 ClientChangeScene(offlineScene, SceneOperation.Normal);
             }
