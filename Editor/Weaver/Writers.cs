@@ -21,27 +21,45 @@ namespace Mirror.Weaver
             writeFuncs[dataType.FullName] = methodReference;
         }
 
+        static void RegisterWriteFunc(string name, MethodDefinition newWriterFunc)
+        {
+            writeFuncs[name] = newWriterFunc;
+            Weaver.WeaveLists.generatedWriteFunctions.Add(newWriterFunc);
+
+            Weaver.ConfirmGeneratedCodeClass();
+            Weaver.WeaveLists.generateContainerClass.Methods.Add(newWriterFunc);
+        }
+
         public static MethodReference GetWriteFunc(TypeReference variable, int recursionCount = 0)
         {
             if (writeFuncs.TryGetValue(variable.FullName, out MethodReference foundFunc))
             {
                 return foundFunc;
             }
-
-            MethodDefinition newWriterFunc;
-
-            // Arrays are special,  if we resolve them, we get the element type,
-            // so the following ifs might choke on it for scriptable objects
-            // or other objects that require a custom serializer
-            // thus check if it is an array and skip all the checks.
-            if (variable.IsArray)
+            else if (variable.Resolve().IsEnum)
             {
-                newWriterFunc = GenerateArrayWriteFunc(variable, recursionCount);
+                // serialize enum as their base type
+                return GetWriteFunc(variable.Resolve().GetEnumUnderlyingType());
+            }
+            else
+            {
+                MethodDefinition newWriterFunc = GenerateWriter(variable, recursionCount);
                 if (newWriterFunc != null)
                 {
                     RegisterWriteFunc(variable.FullName, newWriterFunc);
                 }
                 return newWriterFunc;
+            }
+        }
+
+        static MethodDefinition GenerateWriter(TypeReference variable, int recursionCount = 0)
+        {
+            // Arrays are special, if we resolve them, we get the element type,
+            // eg int[] resolves to int
+            // therefore process this before checks below
+            if (variable.IsArray)
+            {
+                return GenerateArrayWriteFunc(variable, recursionCount);
             }
 
             if (variable.IsByReference)
@@ -83,39 +101,17 @@ namespace Mirror.Weaver
                 return null;
             }
 
-            if (variable.Resolve().IsEnum)
+            if (variable.IsArraySegment())
             {
-                return GetWriteFunc(variable.Resolve().GetEnumUnderlyingType(), recursionCount);
+                return GenerateArraySegmentWriteFunc(variable, recursionCount);
             }
-            else if (variable.IsArraySegment())
+            if (variable.IsList())
             {
-                newWriterFunc = GenerateArraySegmentWriteFunc(variable, recursionCount);
-            }
-            else if (variable.IsList())
-            {
-                newWriterFunc = GenerateListWriteFunc(variable, recursionCount);
-            }
-            else
-            {
-                newWriterFunc = GenerateClassOrStructWriterFunction(variable, recursionCount);
+                return GenerateListWriteFunc(variable, recursionCount);
             }
 
-            if (newWriterFunc == null)
-            {
-                return null;
-            }
 
-            RegisterWriteFunc(variable.FullName, newWriterFunc);
-            return newWriterFunc;
-        }
-
-        static void RegisterWriteFunc(string name, MethodDefinition newWriterFunc)
-        {
-            writeFuncs[name] = newWriterFunc;
-            Weaver.WeaveLists.generatedWriteFunctions.Add(newWriterFunc);
-
-            Weaver.ConfirmGeneratedCodeClass();
-            Weaver.WeaveLists.generateContainerClass.Methods.Add(newWriterFunc);
+            return GenerateClassOrStructWriterFunction(variable, recursionCount);
         }
 
         static MethodDefinition GenerateClassOrStructWriterFunction(TypeReference variable, int recursionCount)
@@ -155,7 +151,7 @@ namespace Mirror.Weaver
         }
 
         /// <summary>
-        /// Fiends all fields in
+        /// Find all fields in type and write them
         /// </summary>
         /// <param name="variable"></param>
         /// <param name="recursionCount"></param>
