@@ -21,6 +21,7 @@
 // ---------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Net.WebSockets;
@@ -57,7 +58,10 @@ namespace Ninja.WebSockets.Internal
         const int MAX_PING_PONG_PAYLOAD_LEN = 125;
         WebSocketCloseStatus? _closeStatus;
         string _closeStatusDescription;
-        SemaphoreSlim sendSemaphore = new SemaphoreSlim(1, 1);
+        bool sendingMessage = false;
+        Queue<ArraySegment<byte>> messagesToSend = new Queue<ArraySegment<byte>>();
+        Queue<ArraySegment<byte>> pongMessagesToSend = new Queue<ArraySegment<byte>>();
+        Queue<ArraySegment<byte>> pingMessagesToSend = new Queue<ArraySegment<byte>>();
 
         public event EventHandler<PongEventArgs> Pong;
 
@@ -223,14 +227,15 @@ namespace Ninja.WebSockets.Internal
             // In SslStream, only one SendAsync can be going at a time
             // if Send is called multiple time, only the first one calls SendAsync,
             // the other ones queue up the message
-            await sendSemaphore.WaitAsync();
-            try
+            messagesToSend.Enqueue(buffer);
+            if (!sendingMessage)
             {
-                await SendAsyncInternal(buffer, messageType, endOfMessage, cancellationToken);
-            }
-            finally
-            {
-                sendSemaphore.Release();
+                sendingMessage = true;
+                while (messagesToSend.Count > 0)
+                {
+                    await SendAsyncInternal(messagesToSend.Dequeue(), messageType, endOfMessage, cancellationToken);
+                }
+                sendingMessage = false;
             }
         }
 
@@ -277,6 +282,20 @@ namespace Ninja.WebSockets.Internal
                 throw new InvalidOperationException($"Cannot send Ping: Max ping message size {MAX_PING_PONG_PAYLOAD_LEN} exceeded: {payload.Count}");
             }
 
+            pingMessagesToSend.Enqueue(payload);
+            if (!sendingMessage)
+            {
+                sendingMessage = true;
+                while (pingMessagesToSend.Count > 0)
+                {
+                    await SendPingAsyncInternal(pingMessagesToSend.Dequeue(), cancellationToken);
+                }
+                sendingMessage = false;
+            }
+        }
+
+        async Task SendPingAsyncInternal(ArraySegment<byte> payload, CancellationToken cancellationToken)
+        {
             if (_state == WebSocketState.Open)
             {
                 using (MemoryStream stream = _recycledStreamFactory())
@@ -429,20 +448,34 @@ namespace Ninja.WebSockets.Internal
 
             try
             {
-                if (_state == WebSocketState.Open)
+                pongMessagesToSend.Enqueue(payload);
+                if (!sendingMessage)
                 {
-                    using (MemoryStream stream = _recycledStreamFactory())
+                    sendingMessage = true;
+                    while (pongMessagesToSend.Count > 0)
                     {
-                        WebSocketFrameWriter.Write(WebSocketOpCode.Pong, payload, stream, true, _isClient);
-                        Events.Log.SendingFrame(_guid, WebSocketOpCode.Pong, true, payload.Count, false);
-                        await WriteStreamToNetwork(stream, cancellationToken);
+                        await SendPongAsyncInternal(pongMessagesToSend.Dequeue(), cancellationToken);
                     }
+                    sendingMessage = false;
                 }
             }
             catch (Exception ex)
             {
                 await CloseOutputAutoTimeoutAsync(WebSocketCloseStatus.EndpointUnavailable, "Unable to send Pong response", ex);
                 throw;
+            }
+        }
+
+        async Task SendPongAsyncInternal(ArraySegment<byte> payload, CancellationToken cancellationToken)
+        {
+            if (_state == WebSocketState.Open)
+            {
+                using (MemoryStream stream = _recycledStreamFactory())
+                {
+                    WebSocketFrameWriter.Write(WebSocketOpCode.Pong, payload, stream, true, _isClient);
+                    Events.Log.SendingFrame(_guid, WebSocketOpCode.Pong, true, payload.Count, false);
+                    await WriteStreamToNetwork(stream, cancellationToken);
+                }
             }
         }
 
