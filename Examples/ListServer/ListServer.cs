@@ -45,6 +45,7 @@ namespace Mirror.Examples.ListServer
         [Header("UI")]
         public GameObject mainPanel;
         public Transform content;
+        public Text statusText;
         public UIServerStatusSlot slotPrefab;
         public Button serverAndPlayButton;
         public Button serverOnlyButton;
@@ -127,7 +128,7 @@ namespace Mirror.Examples.ListServer
                 // (we may have just started the game)
                 else if (!gameServerToListenConnection.Connecting)
                 {
-                    Debug.Log("Establishing game server to listen connection...");
+                    Debug.Log("[List Server] GameServer connecting......");
                     gameServerToListenConnection.Connect(listServerIp, gameServerToListenPort);
                 }
             }
@@ -186,9 +187,15 @@ namespace Mirror.Examples.ListServer
                     // receive latest game server info
                     while (clientToListenConnection.GetNextMessage(out Telepathy.Message message))
                     {
+                        // connected?
+                        if (message.eventType == Telepathy.EventType.Connected)
+                            Debug.Log("[List Server] Client connected!");
                         // data message?
-                        if (message.eventType == Telepathy.EventType.Data)
+                        else if (message.eventType == Telepathy.EventType.Data)
                             ParseMessage(message.data);
+                        // disconnected?
+                        else if (message.eventType == Telepathy.EventType.Connected)
+                            Debug.Log("[List Server] Client disconnected.");
                     }
 
                     // ping again if previous ping finished
@@ -205,7 +212,7 @@ namespace Mirror.Examples.ListServer
                 // (we may have just joined the menu/disconnect from game server)
                 else if (!clientToListenConnection.Connecting)
                 {
-                    Debug.Log("Establishing client to listen connection...");
+                    Debug.Log("[List Server] Client connecting...");
                     clientToListenConnection.Connect(listServerIp, clientToListenPort);
                 }
             }
@@ -226,14 +233,14 @@ namespace Mirror.Examples.ListServer
             // instantiate until amount
             for (int i = parent.childCount; i < amount; ++i)
             {
-                GameObject go = GameObject.Instantiate(prefab);
+                GameObject go = Instantiate(prefab);
                 go.transform.SetParent(parent, false);
             }
 
             // delete everything that's too much
             // (backwards loop because Destroy changes childCount)
             for (int i = parent.childCount-1; i >= amount; --i)
-                GameObject.Destroy(parent.GetChild(i).gameObject);
+                Destroy(parent.GetChild(i).gameObject);
         }
 
         void OnUI()
@@ -242,6 +249,23 @@ namespace Mirror.Examples.ListServer
             if (!NetworkManager.singleton.isNetworkActive || IsConnecting())
             {
                 mainPanel.SetActive(true);
+
+                // status text
+                if (clientToListenConnection.Connecting)
+                {
+                    //statusText.color = Color.yellow;
+                    statusText.text = "Connecting...";
+                }
+                else if (clientToListenConnection.Connected)
+                {
+                    //statusText.color = Color.green;
+                    statusText.text = "Connected!";
+                }
+                else
+                {
+                    //statusText.color = Color.gray;
+                    statusText.text = "Disconnected";
+                }
 
                 // instantiate/destroy enough slots
                 BalancePrefabs(slotPrefab.gameObject, list.Count, content);
