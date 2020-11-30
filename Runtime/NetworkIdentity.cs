@@ -533,6 +533,8 @@ namespace Mirror
                 // an exception in OnStartServer should be caught, so that one
                 // component's exception doesn't stop all other components from
                 // being initialized
+                // => this is what Unity does for Start() etc. too.
+                //    one exception doesn't stop all the other Start() calls!
                 try
                 {
                     comp.OnStartServer();
@@ -556,9 +558,39 @@ namespace Mirror
             if (LogFilter.Debug) Debug.Log("OnStartClient " + gameObject + " netId:" + netId);
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                // an exception in OnStartClient should be caught, so that one
+                // component's exception doesn't stop all other components from
+                // being initialized
+                // => this is what Unity does for Start() etc. too.
+                //    one exception doesn't stop all the other Start() calls!
                 try
                 {
                     comp.OnStartClient(); // user implemented startup
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError("Exception in OnStartClient:" + e.Message + " " + e.StackTrace);
+                }
+            }
+        }
+
+        private static NetworkIdentity previousLocalPlayer = null;
+        internal void OnStartLocalPlayer()
+        {
+            if (previousLocalPlayer == this)
+                return;
+            previousLocalPlayer = this;
+
+            foreach (NetworkBehaviour comp in NetworkBehaviours)
+            {
+                // an exception in OnStartLocalPlayer should be caught, so that
+                // one component's exception doesn't stop all other components
+                // from being initialized
+                // => this is what Unity does for Start() etc. too.
+                //    one exception doesn't stop all the other Start() calls!
+                try
+                {
+                    comp.OnStartLocalPlayer();
                 }
                 catch (Exception e)
                 {
@@ -577,10 +609,15 @@ namespace Mirror
             hadAuthority = hasAuthority;
         }
 
-        void OnStartAuthority()
+        internal void OnStartAuthority()
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                // an exception in OnStartAuthority should be caught, so that one
+                // component's exception doesn't stop all other components from
+                // being initialized
+                // => this is what Unity does for Start() etc. too.
+                //    one exception doesn't stop all the other Start() calls!
                 try
                 {
                     comp.OnStartAuthority();
@@ -592,10 +629,15 @@ namespace Mirror
             }
         }
 
-        void OnStopAuthority()
+        internal void OnStopAuthority()
         {
             foreach (NetworkBehaviour comp in NetworkBehaviours)
             {
+                // an exception in OnStopAuthority should be caught, so that one
+                // component's exception doesn't stop all other components from
+                // being initialized
+                // => this is what Unity does for Start() etc. too.
+                //    one exception doesn't stop all the other Start() calls!
                 try
                 {
                     comp.OnStopAuthority();
@@ -874,24 +916,6 @@ namespace Mirror
         internal void HandleRPC(int componentIndex, int rpcHash, NetworkReader reader)
         {
             HandleRemoteCall(componentIndex, rpcHash, MirrorInvokeType.ClientRpc, reader);
-        }
-
-        internal void OnUpdateVars(NetworkReader reader, bool initialState)
-        {
-            OnDeserializeAllSafely(reader, initialState);
-        }
-
-        private static NetworkIdentity previousLocalPlayer = null;
-        internal void OnStartLocalPlayer()
-        {
-            if (previousLocalPlayer == this)
-                return;
-            previousLocalPlayer = this;
-
-            foreach (NetworkBehaviour comp in NetworkBehaviours)
-            {
-                comp.OnStartLocalPlayer();
-            }
         }
 
         internal void OnNetworkDestroy()
