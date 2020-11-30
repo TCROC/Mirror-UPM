@@ -123,7 +123,7 @@ namespace Mirror
         ///     works fine if we keep the UNET way of setting isClient manually.
         /// </para>
         /// <para>
-        ///     => fixes <see cref="https://github.com/vis2k/Mirror/issues/1475"/>
+        ///     => fixes <see href="https://github.com/vis2k/Mirror/issues/1475"/>
         /// </para>
         /// </summary>
         /// <remarks>
@@ -145,7 +145,7 @@ namespace Mirror
         ///     works fine if we keep the UNET way of setting isServer manually.
         /// </para>
         /// <para>
-        ///     => fixes <see cref="https://github.com/vis2k/Mirror/issues/1484"/>
+        ///     => fixes <see href="https://github.com/vis2k/Mirror/issues/1484"/>
         /// </para>
         /// </remarks>
         public bool isServer { get; internal set; }
@@ -188,6 +188,11 @@ namespace Mirror
         /// </summary>
         [FormerlySerializedAs("m_ServerOnly")]
         public bool serverOnly;
+
+        /// <summary>
+        /// Set to try before Destroy is called so that OnDestroy doesn't try to destroy the object again
+        /// </summary>
+        internal bool destroyCalled;
 
         /// <summary>
         /// The NetworkConnection associated with this NetworkIdentity. This is only valid for player objects on a local client.
@@ -705,7 +710,8 @@ namespace Mirror
 
             // If false the object has already been unspawned
             // if it is still true, then we need to unspawn it
-            if (isServer)
+            // if destroy is already called don't call it again
+            if (isServer && !destroyCalled)
             {
                 // Do not add logging to this (see above)
                 NetworkServer.Destroy(gameObject);
