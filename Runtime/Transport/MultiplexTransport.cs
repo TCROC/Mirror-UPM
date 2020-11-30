@@ -90,12 +90,12 @@ namespace Mirror
 
         public override bool ClientConnected()
         {
-            return available != null && available.ClientConnected();
+            return (object)available != null && available.ClientConnected();
         }
 
         public override void ClientDisconnect()
         {
-            if (available != null)
+            if ((object)available != null)
                 available.ClientDisconnect();
         }
 
