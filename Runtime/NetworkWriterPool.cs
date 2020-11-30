@@ -24,7 +24,7 @@ namespace Mirror
         /// <summary>
         /// Size of the pool
         /// <para>If pool is too small getting writers will causes memory allocation</para>
-        /// <para>Default value: <see cref="100">PoolStartSize</see> </para>
+        /// <para>Default value: 100 </para>
         /// </summary>
         public static int Capacity
         {
@@ -49,6 +49,9 @@ namespace Mirror
         ///
         /// <para>keep in mind, most entries of the pool will be null in most cases</para>
         /// </summary>
+        ///
+        /// Note: we use an Array instead of a Stack because it's significantly
+        ///       faster: https://github.com/vis2k/Mirror/issues/1614
         static PooledNetworkWriter[] pool = new PooledNetworkWriter[100];
 
         static int next = -1;
