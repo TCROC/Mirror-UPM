@@ -1,4 +1,4 @@
-![Mirror Logo](https://i.imgur.com/fDxMOOT.png)
+![Mirror Logo](https://i.imgur.com/we6li1x.png)
 
 [![Download](https://img.shields.io/badge/asset_store-brightgreen.svg)](https://assetstore.unity.com/packages/tools/network/mirror-129321)
 [![Documentation](https://img.shields.io/badge/docs-brightgreen.svg)](https://mirror-networking.com/docs)
@@ -46,10 +46,10 @@ Get **Unity 2018/2019 LTS**, download [Mirror on the Asset Store](https://assets
 
 Check out our [Documentation](https://mirror-networking.com/docs/) to learn how it all works.
 
-If you are migrating from UNET, then please check out our [Migration Guide](https://mirror-networking.com/docs/General/Migration.html).
+If you are migrating from UNET, then please check out our [Migration Guide](https://mirror-networking.com/docs/Articles/General/Migration.html).
 
 ## Funding
-Mirror is free & open source software funded by Donations. If you love it, please consider supporting [Mirror on GitHub](https://github.com/sponsors/vis2k). As reward, you'll receive our [Network Profiler](https://mirror-networking.com/docs/Guides/Profiler.html?q=Profiler), priority support and more :)
+Mirror is free & open source software funded by Donations. If you love it, please consider supporting [Mirror on GitHub](https://github.com/sponsors/vis2k). As reward, you'll receive our [Network Profiler](https://mirror-networking.com/docs/Articles/Guides/Profiler.html?q=Profiler), priority support and more :)
 
 ## Benchmarks
 * [uMMORPG 480 CCU worst case test](https://youtu.be/mDCNff1S9ZU) (everyone broadcasting to everyone else)
