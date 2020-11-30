@@ -268,7 +268,7 @@ namespace Mirror
         {
             if (logger.LogEnabled()) logger.Log("Server.SendToObservers id:" + typeof(T));
 
-            if (identity != null && identity.observers != null)
+            if (identity != null && identity.observers != null && identity.observers.Count > 0)
             {
                 // get writer from pool
                 using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
@@ -394,7 +394,7 @@ namespace Mirror
         {
             if (logger.LogEnabled()) logger.Log("Server.SendToReady msgType:" + typeof(T));
 
-            if (identity != null && identity.observers != null)
+            if (identity != null && identity.observers != null && identity.observers.Count > 0)
             {
                 // get writer from pool
                 using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
@@ -497,8 +497,8 @@ namespace Mirror
         /// </summary>
         public static void Update()
         {
-            // dont need to update server if not active or no client connections
-            if (!active || NoConnections())
+            // dont need to update server if not active
+            if (!active)
                 return;
 
             // Check for dead clients but exclude the host client because it
