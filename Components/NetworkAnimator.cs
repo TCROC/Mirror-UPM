@@ -85,6 +85,9 @@ namespace Mirror
             if (!SendMessagesAllowed)
                 return;
 
+            if (!animator.enabled)
+                return;
+
             CheckSendRate();
 
             for (int i = 0; i < animator.layerCount; i++)
@@ -187,7 +190,8 @@ namespace Mirror
             // NOTE: there is no API to play a transition(?)
             if (stateHash != 0)
             {
-                animator.Play(stateHash, layerId, normalizedTime);
+                if (animator.enabled)
+                    animator.Play(stateHash, layerId, normalizedTime);
             }
 
             ReadParameters(reader);
@@ -203,12 +207,14 @@ namespace Mirror
 
         void HandleAnimTriggerMsg(int hash)
         {
-            animator.SetTrigger(hash);
+            if (animator.enabled)
+                animator.SetTrigger(hash);
         }
 
         void HandleAnimResetTriggerMsg(int hash)
         {
-            animator.ResetTrigger(hash);
+            if (animator.enabled)
+                animator.ResetTrigger(hash);
         }
 
         ulong NextDirtyBits()
@@ -222,19 +228,23 @@ namespace Mirror
                 {
                     int newIntValue = animator.GetInteger(par.nameHash);
                     changed = newIntValue != lastIntParameters[i];
-                    lastIntParameters[i] = newIntValue;
+                    if (changed)
+                        lastIntParameters[i] = newIntValue;
                 }
                 else if (par.type == AnimatorControllerParameterType.Float)
                 {
                     float newFloatValue = animator.GetFloat(par.nameHash);
                     changed = Mathf.Abs(newFloatValue - lastFloatParameters[i]) > 0.001f;
-                    lastFloatParameters[i] = newFloatValue;
+                    // only set lastValue if it was changed, otherwise value could slowly drift within the 0.001f limit each frame
+                    if (changed)
+                        lastFloatParameters[i] = newFloatValue;
                 }
                 else if (par.type == AnimatorControllerParameterType.Bool)
                 {
                     bool newBoolValue = animator.GetBool(par.nameHash);
                     changed = newBoolValue != lastBoolParameters[i];
-                    lastBoolParameters[i] = newBoolValue;
+                    if (changed)
+                        lastBoolParameters[i] = newBoolValue;
                 }
                 if (changed)
                 {
@@ -275,6 +285,9 @@ namespace Mirror
 
         void ReadParameters(NetworkReader reader)
         {
+            bool animatorEnabled = animator.enabled;
+            // need to read values from NetworkReader even if animator is disabled
+
             ulong dirtyBits = reader.ReadPackedUInt64();
             for (int i = 0; i < parameters.Length; i++)
             {
@@ -285,17 +298,20 @@ namespace Mirror
                 if (par.type == AnimatorControllerParameterType.Int)
                 {
                     int newIntValue = reader.ReadPackedInt32();
-                    animator.SetInteger(par.nameHash, newIntValue);
+                    if (animatorEnabled)
+                        animator.SetInteger(par.nameHash, newIntValue);
                 }
                 else if (par.type == AnimatorControllerParameterType.Float)
                 {
                     float newFloatValue = reader.ReadSingle();
-                    animator.SetFloat(par.nameHash, newFloatValue);
+                    if (animatorEnabled)
+                        animator.SetFloat(par.nameHash, newFloatValue);
                 }
                 else if (par.type == AnimatorControllerParameterType.Bool)
                 {
                     bool newBoolValue = reader.ReadBoolean();
-                    animator.SetBool(par.nameHash, newBoolValue);
+                    if (animatorEnabled)
+                        animator.SetBool(par.nameHash, newBoolValue);
                 }
             }
         }
@@ -392,6 +408,7 @@ namespace Mirror
                     return;
                 }
 
+                HandleAnimTriggerMsg(hash);
                 RpcOnAnimationTriggerClientMessage(hash);
             }
         }
@@ -437,6 +454,7 @@ namespace Mirror
                     return;
                 }
 
+                HandleAnimResetTriggerMsg(hash);
                 RpcOnAnimationResetTriggerClientMessage(hash);
             }
         }
@@ -520,6 +538,7 @@ namespace Mirror
         [ClientRpc]
         void RpcOnAnimationTriggerClientMessage(int hash)
         {
+            // host handles this before it is sent
             if (isServer) return;
 
             HandleAnimTriggerMsg(hash);
@@ -528,6 +547,7 @@ namespace Mirror
         [ClientRpc]
         void RpcOnAnimationResetTriggerClientMessage(int hash)
         {
+            // host handles this before it is sent
             if (isServer) return;
 
             HandleAnimResetTriggerMsg(hash);
