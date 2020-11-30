@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Mono.CecilX;
 using Mono.CecilX.Cil;
@@ -7,7 +8,6 @@ namespace Mirror.Weaver
 {
     public static class Readers
     {
-        const int MaxRecursionCount = 128;
         static Dictionary<string, MethodReference> readFuncs;
 
         public static void Init()
@@ -20,14 +20,12 @@ namespace Mirror.Weaver
             readFuncs[dataType.FullName] = methodReference;
         }
 
-        public static MethodReference GetReadFunc(TypeReference variableReference, int recursionCount = 0)
+        public static MethodReference GetReadFunc(TypeReference variableReference)
         {
             if (readFuncs.TryGetValue(variableReference.FullName, out MethodReference foundFunc))
             {
                 return foundFunc;
             }
-
-            MethodDefinition newReaderFunc;
 
             // Arrays are special,  if we resolve them, we get teh element type,
             // so the following ifs might choke on it for scriptable objects
@@ -35,12 +33,7 @@ namespace Mirror.Weaver
             // thus check if it is an array and skip all the checks.
             if (variableReference.IsArray)
             {
-                newReaderFunc = GenerateArrayReadFunc(variableReference, recursionCount);
-                if (newReaderFunc != null)
-                {
-                    RegisterReadFunc(variableReference.FullName, newReaderFunc);
-                }
-                return newReaderFunc;
+                return GenerateArrayReadFunc(variableReference);
             }
 
             TypeDefinition variableDefinition = variableReference.Resolve();
@@ -70,7 +63,7 @@ namespace Mirror.Weaver
                 Weaver.Error($"Cannot pass type {variableReference.Name} by reference", variableReference);
                 return null;
             }
-            if (variableDefinition.HasGenericParameters && !variableDefinition.IsArraySegment() && !variableDefinition.IsList())
+            if (variableDefinition.HasGenericParameters && !variableDefinition.Is(typeof(ArraySegment<>)) && !variableDefinition.Is(typeof(List<>)))
             {
                 Weaver.Error($"Cannot generate reader for generic variable {variableReference.Name}. Use a supported type or provide a custom reader", variableReference);
                 return null;
@@ -88,40 +81,30 @@ namespace Mirror.Weaver
 
             if (variableDefinition.IsEnum)
             {
-                return GetReadFunc(variableDefinition.GetEnumUnderlyingType(), recursionCount);
+                return GenerateEnumReadFunc(variableReference);
             }
-            else if (variableDefinition.IsArraySegment())
+            else if (variableDefinition.Is(typeof(ArraySegment<>)))
             {
-                newReaderFunc = GenerateArraySegmentReadFunc(variableReference, recursionCount);
+                return GenerateArraySegmentReadFunc(variableReference);
             }
-            else if (variableDefinition.IsList())
+            else if (variableDefinition.Is(typeof(List<>)))
             {
-                newReaderFunc = GenerateListReadFunc(variableReference, recursionCount);
-            }
-            else
-            {
-                newReaderFunc = GenerateClassOrStructReadFunction(variableReference, recursionCount);
+                return GenerateListReadFunc(variableReference);
             }
 
-            if (newReaderFunc == null)
-            {
-                Weaver.Error($"{variableReference.Name} is not a supported type", variableReference);
-                return null;
-            }
-            RegisterReadFunc(variableReference.FullName, newReaderFunc);
-            return newReaderFunc;
+            return GenerateClassOrStructReadFunction(variableReference);
         }
 
-        static void RegisterReadFunc(string name, MethodDefinition newReaderFunc)
+        static void RegisterReadFunc(TypeReference typeReference, MethodDefinition newReaderFunc)
         {
-            readFuncs[name] = newReaderFunc;
+            readFuncs[typeReference.FullName] = newReaderFunc;
             Weaver.WeaveLists.generatedReadFunctions.Add(newReaderFunc);
 
-            Weaver.ConfirmGeneratedCodeClass();
+            Weaver.WeaveLists.ConfirmGeneratedCodeClass();
             Weaver.WeaveLists.generateContainerClass.Methods.Add(newReaderFunc);
         }
 
-        static MethodDefinition GenerateArrayReadFunc(TypeReference variable, int recursionCount)
+        static MethodDefinition GenerateArrayReadFunc(TypeReference variable)
         {
             if (!variable.IsArrayType())
             {
@@ -129,37 +112,19 @@ namespace Mirror.Weaver
                 return null;
             }
 
+            MethodDefinition readerFunc = GenerateReaderFunction(variable);
             TypeReference elementType = variable.GetElementType();
-            MethodReference elementReadFunc = GetReadFunc(elementType, recursionCount + 1);
+            MethodReference elementReadFunc = GetReadFunc(elementType);
             if (elementReadFunc == null)
             {
                 Weaver.Error($"Cannot generate reader for Array because element {elementType.Name} does not have a reader. Use a supported type or provide a custom reader", variable);
-                return null;
+                return readerFunc;
             }
 
-            string functionName = "_ReadArray" + variable.GetElementType().Name + "_";
-            if (variable.DeclaringType != null)
-            {
-                functionName += variable.DeclaringType.Name;
-            }
-            else
-            {
-                functionName += "None";
-            }
-
-            // create new reader for this type
-            MethodDefinition readerFunc = new MethodDefinition(functionName,
-                    MethodAttributes.Public |
-                    MethodAttributes.Static |
-                    MethodAttributes.HideBySig,
-                    variable);
-
-            readerFunc.Parameters.Add(new ParameterDefinition("reader", ParameterAttributes.None, WeaverTypes.Import<Mirror.NetworkReader>()));
 
             readerFunc.Body.Variables.Add(new VariableDefinition(WeaverTypes.Import<int>()));
             readerFunc.Body.Variables.Add(new VariableDefinition(variable));
             readerFunc.Body.Variables.Add(new VariableDefinition(WeaverTypes.Import<int>()));
-            readerFunc.Body.InitLocals = true;
 
             ILProcessor worker = readerFunc.Body.GetILProcessor();
 
@@ -219,36 +184,35 @@ namespace Mirror.Weaver
             return readerFunc;
         }
 
-        static MethodDefinition GenerateArraySegmentReadFunc(TypeReference variable, int recursionCount)
+        static MethodDefinition GenerateEnumReadFunc(TypeReference variable)
+        {
+            MethodDefinition readerFunc = GenerateReaderFunction(variable);
+
+            ILProcessor worker = readerFunc.Body.GetILProcessor();
+
+            worker.Append(worker.Create(OpCodes.Ldarg_0));
+
+            TypeReference underlyingType = variable.Resolve().GetEnumUnderlyingType();
+            MethodReference underlyingFunc = GetReadFunc(underlyingType);
+
+            worker.Append(worker.Create(OpCodes.Call, underlyingFunc));
+            worker.Append(worker.Create(OpCodes.Ret));
+            return readerFunc;
+        }
+
+        static MethodDefinition GenerateArraySegmentReadFunc(TypeReference variable)
         {
             GenericInstanceType genericInstance = (GenericInstanceType)variable;
             TypeReference elementType = genericInstance.GenericArguments[0];
 
-            MethodReference elementReadFunc = GetReadFunc(elementType, recursionCount + 1);
+            MethodReference elementReadFunc = GetReadFunc(elementType);
             if (elementReadFunc == null)
             {
                 Weaver.Error($"Cannot generate reader for ArraySegment because element {elementType.Name} does not have a reader. Use a supported type or provide a custom reader", variable);
                 return null;
             }
 
-            string functionName = "_ReadArraySegment_" + elementType.Name + "_";
-            if (variable.DeclaringType != null)
-            {
-                functionName += variable.DeclaringType.Name;
-            }
-            else
-            {
-                functionName += "None";
-            }
-
-            // create new reader for this type
-            MethodDefinition readerFunc = new MethodDefinition(functionName,
-                    MethodAttributes.Public |
-                    MethodAttributes.Static |
-                    MethodAttributes.HideBySig,
-                    variable);
-
-            readerFunc.Parameters.Add(new ParameterDefinition("reader", ParameterAttributes.None, WeaverTypes.Import<Mirror.NetworkReader>()));
+            MethodDefinition readerFunc = GenerateReaderFunction(variable);
 
             // int lengh
             readerFunc.Body.Variables.Add(new VariableDefinition(WeaverTypes.Import<int>()));
@@ -256,7 +220,7 @@ namespace Mirror.Weaver
             readerFunc.Body.Variables.Add(new VariableDefinition(elementType.MakeArrayType()));
             // int i;
             readerFunc.Body.Variables.Add(new VariableDefinition(WeaverTypes.Import<int>()));
-            readerFunc.Body.InitLocals = true;
+            
 
             ILProcessor worker = readerFunc.Body.GetILProcessor();
 
@@ -310,41 +274,42 @@ namespace Mirror.Weaver
             return readerFunc;
         }
 
-        static MethodDefinition GenerateListReadFunc(TypeReference variable, int recursionCount)
+        private static MethodDefinition GenerateReaderFunction(TypeReference variable)
         {
-            GenericInstanceType genericInstance = (GenericInstanceType)variable;
-            TypeReference elementType = genericInstance.GenericArguments[0];
-
-            MethodReference elementReadFunc = GetReadFunc(elementType, recursionCount + 1);
-            if (elementReadFunc == null)
-            {
-                Weaver.Error($"Cannot generate reader for List because element {elementType.Name} does not have a reader. Use a supported type or provide a custom reader", variable);
-                return null;
-            }
-
-            string functionName = "_ReadList_" + elementType.Name + "_";
-            if (variable.DeclaringType != null)
-            {
-                functionName += variable.DeclaringType.Name;
-            }
-            else
-            {
-                functionName += "None";
-            }
+            string functionName = "_Read_" + variable.FullName;
 
             // create new reader for this type
-            MethodDefinition readerFunc = new MethodDefinition(functionName,
+            var readerFunc = new MethodDefinition(functionName,
                     MethodAttributes.Public |
                     MethodAttributes.Static |
                     MethodAttributes.HideBySig,
-                    variable);
+                    Weaver.CurrentAssembly.MainModule.ImportReference(variable));
 
             readerFunc.Parameters.Add(new ParameterDefinition("reader", ParameterAttributes.None, WeaverTypes.Import<Mirror.NetworkReader>()));
+            readerFunc.Body.InitLocals = true;
+            RegisterReadFunc(variable, readerFunc);
+
+            return readerFunc;
+        }
+
+        static MethodDefinition GenerateListReadFunc(TypeReference variable)
+        {
+            MethodDefinition readerFunc = GenerateReaderFunction(variable);
+
+            GenericInstanceType genericInstance = (GenericInstanceType)variable;
+            TypeReference elementType = genericInstance.GenericArguments[0];
+
+            MethodReference elementReadFunc = GetReadFunc(elementType);
+            if (elementReadFunc == null)
+            {
+                Weaver.Error($"Cannot generate reader for List because element {elementType.Name} does not have a reader. Use a supported type or provide a custom reader", variable);
+                return readerFunc;
+            }
+
 
             readerFunc.Body.Variables.Add(new VariableDefinition(WeaverTypes.Import<int>()));
             readerFunc.Body.Variables.Add(new VariableDefinition(variable));
             readerFunc.Body.Variables.Add(new VariableDefinition(WeaverTypes.Import<int>()));
-            readerFunc.Body.InitLocals = true;
 
             ILProcessor worker = readerFunc.Body.GetILProcessor();
 
@@ -415,47 +380,43 @@ namespace Mirror.Weaver
         }
 
 
-        static MethodDefinition GenerateClassOrStructReadFunction(TypeReference variable, int recursionCount)
+        static MethodDefinition GenerateClassOrStructReadFunction(TypeReference variable)
         {
-            if (recursionCount > MaxRecursionCount)
-            {
-                Weaver.Error($"{variable.Name} can't be deserialized because it references itself", variable);
-                return null;
-            }
-
-            string functionName = "_Read" + variable.Name + "_";
-            if (variable.DeclaringType != null)
-            {
-                functionName += variable.DeclaringType.Name;
-            }
-            else
-            {
-                functionName += "None";
-            }
-
-            // create new reader for this type
-            MethodDefinition readerFunc = new MethodDefinition(functionName,
-                    MethodAttributes.Public |
-                    MethodAttributes.Static |
-                    MethodAttributes.HideBySig,
-                    variable);
+            MethodDefinition readerFunc = GenerateReaderFunction(variable);
 
             // create local for return value
             readerFunc.Body.Variables.Add(new VariableDefinition(variable));
-            readerFunc.Body.InitLocals = true;
-
-            readerFunc.Parameters.Add(new ParameterDefinition("reader", ParameterAttributes.None, WeaverTypes.Import<Mirror.NetworkReader>()));
 
             ILProcessor worker = readerFunc.Body.GetILProcessor();
 
             TypeDefinition td = variable.Resolve();
 
+            if (!td.IsValueType)
+                GenerateNullCheck(worker);
+
             CreateNew(variable, worker, td);
-            ReadAllFields(variable, recursionCount, worker);
+            ReadAllFields(variable, worker);
 
             worker.Append(worker.Create(OpCodes.Ldloc_0));
             worker.Append(worker.Create(OpCodes.Ret));
             return readerFunc;
+        }
+
+        private static void GenerateNullCheck(ILProcessor worker)
+        {
+            // if (!reader.ReadBoolean()) {
+            //   return null;
+            // }
+
+            worker.Append(worker.Create(OpCodes.Ldarg_0));
+            worker.Append(worker.Create(OpCodes.Call, GetReadFunc(WeaverTypes.Import<bool>())));
+
+            Instruction labelEmptyArray = worker.Create(OpCodes.Nop);
+            worker.Append(worker.Create(OpCodes.Brtrue, labelEmptyArray));
+            // return null
+            worker.Append(worker.Create(OpCodes.Ldnull));
+            worker.Append(worker.Create(OpCodes.Ret));
+            worker.Append(labelEmptyArray);
         }
 
         // Initialize the local variable with a new instance
@@ -492,7 +453,7 @@ namespace Mirror.Weaver
             }
         }
 
-        static void ReadAllFields(TypeReference variable, int recursionCount, ILProcessor worker)
+        static void ReadAllFields(TypeReference variable, ILProcessor worker)
         {
             uint fields = 0;
             foreach (FieldDefinition field in variable.FindAllPublicFields())
@@ -501,7 +462,7 @@ namespace Mirror.Weaver
                 OpCode opcode = variable.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc;
                 worker.Append(worker.Create(opcode, 0));
 
-                MethodReference readFunc = GetReadFunc(field.FieldType, recursionCount + 1);
+                MethodReference readFunc = GetReadFunc(field.FieldType);
                 if (readFunc != null)
                 {
                     worker.Append(worker.Create(OpCodes.Ldarg_0));

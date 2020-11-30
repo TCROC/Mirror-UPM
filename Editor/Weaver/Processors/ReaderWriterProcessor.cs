@@ -43,13 +43,13 @@ namespace Mirror.Weaver
                 // static classes are represented as sealed and abstract
                 if (klass.IsAbstract && klass.IsSealed)
                 {
-                    LoadWriters(CurrentAssembly, klass);
-                    LoadReaders(CurrentAssembly, klass);
+                    LoadDeclaredWriters(CurrentAssembly, klass);
+                    LoadDeclaredReaders(CurrentAssembly, klass);
                 }
             }
         }
 
-        static void LoadWriters(AssemblyDefinition currentAssembly, TypeDefinition klass)
+        static void LoadDeclaredWriters(AssemblyDefinition currentAssembly, TypeDefinition klass)
         {
             // register all the writers in this class.  Skip the ones with wrong signature
             foreach (MethodDefinition method in klass.Methods)
@@ -57,13 +57,16 @@ namespace Mirror.Weaver
                 if (method.Parameters.Count != 2)
                     continue;
 
-                if (method.Parameters[0].ParameterType.FullName != "Mirror.NetworkWriter")
+                if (!method.Parameters[0].ParameterType.Is<NetworkWriter>())
                     continue;
 
-                if (method.ReturnType.FullName != "System.Void")
+                if (!method.ReturnType.Is(typeof(void)))
                     continue;
 
                 if (!method.HasCustomAttribute<System.Runtime.CompilerServices.ExtensionAttribute>())
+                    continue;
+
+                if (method.HasGenericParameters)
                     continue;
 
                 TypeReference dataType = method.Parameters[1].ParameterType;
@@ -71,7 +74,7 @@ namespace Mirror.Weaver
             }
         }
 
-        static void LoadReaders(AssemblyDefinition currentAssembly, TypeDefinition klass)
+        static void LoadDeclaredReaders(AssemblyDefinition currentAssembly, TypeDefinition klass)
         {
             // register all the reader in this class.  Skip the ones with wrong signature
             foreach (MethodDefinition method in klass.Methods)
@@ -79,13 +82,16 @@ namespace Mirror.Weaver
                 if (method.Parameters.Count != 1)
                     continue;
 
-                if (method.Parameters[0].ParameterType.FullName != "Mirror.NetworkReader")
+                if (!method.Parameters[0].ParameterType.Is<NetworkReader>())
                     continue;
 
-                if (method.ReturnType.FullName == "System.Void")
+                if (method.ReturnType.Is(typeof(void)))
                     continue;
 
                 if (!method.HasCustomAttribute<System.Runtime.CompilerServices.ExtensionAttribute>())
+                    continue;
+
+                if (method.HasGenericParameters)
                     continue;
 
                 Readers.Register(method.ReturnType, currentAssembly.MainModule.ImportReference(method));
