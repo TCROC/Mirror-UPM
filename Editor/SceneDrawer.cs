@@ -14,7 +14,7 @@ namespace Mirror
             if (property.propertyType == SerializedPropertyType.String)
             {
                 SceneAsset sceneObject = GetSceneObject(property.stringValue);
-                var scene = (SceneAsset)EditorGUI.ObjectField(position, label, sceneObject, typeof(SceneAsset), true);
+                SceneAsset scene = (SceneAsset)EditorGUI.ObjectField(position, label, sceneObject, typeof(SceneAsset), true);
                 if (scene == null)
                 {
                     property.stringValue = "";

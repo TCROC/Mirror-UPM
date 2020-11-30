@@ -115,7 +115,6 @@ namespace Mirror
             Transport.activeTransport.OnServerError.AddListener(OnError);
         }
 
-
         internal static void RegisterMessageHandlers()
         {
             RegisterHandler<ReadyMessage>(OnClientReadyMessage);
@@ -213,7 +212,7 @@ namespace Mirror
 
         // this is like SendToReady - but it doesn't check the ready flag on the connection.
         // this is used for ObjectDestroy messages.
-        static bool SendToObservers<T>(NetworkIdentity identity, T msg) where T: IMessageBase
+        static bool SendToObservers<T>(NetworkIdentity identity, T msg) where T : IMessageBase
         {
             if (LogFilter.Debug) Debug.Log("Server.SendToObservers id:" + typeof(T));
 
@@ -251,6 +250,26 @@ namespace Mirror
                 return result;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Obsolete: Use <see cref="SendToAll{T}(T, int)"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use SendToAll<T> instead.")]
+        public static bool SendToAll(int msgType, MessageBase msg, int channelId = Channels.DefaultReliable)
+        {
+            if (LogFilter.Debug) Debug.Log("Server.SendToAll id:" + msgType);
+
+            // pack message into byte[] once
+            byte[] bytes = MessagePacker.PackMessage((ushort)msgType, msg);
+
+            // send to all
+            bool result = true;
+            foreach (KeyValuePair<int, NetworkConnectionToClient> kvp in connections)
+            {
+                result &= kvp.Value.Send(new ArraySegment<byte>(bytes), channelId);
+            }
+            return result;
         }
 
         /// <summary>
@@ -295,6 +314,33 @@ namespace Mirror
             // recycle writer and return
             NetworkWriterPool.Recycle(writer);
             return result;
+        }
+
+        /// <summary>
+        /// Obsolete: Use <see cref="SendToReady{T}(NetworkIdentity, T, int)"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use SendToReady<T> instead.")]
+        public static bool SendToReady(NetworkIdentity identity, short msgType, MessageBase msg, int channelId = Channels.DefaultReliable)
+        {
+            if (LogFilter.Debug) Debug.Log("Server.SendToReady msgType:" + msgType);
+
+            if (identity != null && identity.observers != null)
+            {
+                // pack message into byte[] once
+                byte[] bytes = MessagePacker.PackMessage((ushort)msgType, msg);
+
+                // send to all ready observers
+                bool result = true;
+                foreach (KeyValuePair<int, NetworkConnection> kvp in identity.observers)
+                {
+                    if (kvp.Value.isReady)
+                    {
+                        result &= kvp.Value.Send(new ArraySegment<byte>(bytes), channelId);
+                    }
+                }
+                return result;
+            }
+            return false;
         }
 
         /// <summary>
@@ -506,13 +552,35 @@ namespace Mirror
         }
 
         /// <summary>
+        /// Obsolete: Use <see cref="RegisterHandler{T}(Action{NetworkConnection, T}, bool)"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use RegisterHandler<T>(Action<NetworkConnection, T>, bool) instead.")]
+        public static void RegisterHandler(int msgType, NetworkMessageDelegate handler)
+        {
+            if (handlers.ContainsKey(msgType))
+            {
+                if (LogFilter.Debug) Debug.Log("NetworkServer.RegisterHandler replacing " + msgType);
+            }
+            handlers[msgType] = handler;
+        }
+
+        /// <summary>
+        /// Obsolete: Use <see cref="RegisterHandler{T}(Action{NetworkConnection, T}, bool)"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use RegisterHandler<T>(Action<NetworkConnection, T>, bool) instead.")]
+        public static void RegisterHandler(MsgType msgType, NetworkMessageDelegate handler)
+        {
+            RegisterHandler((int)msgType, handler);
+        }
+
+        /// <summary>
         /// Register a handler for a particular message type.
         /// <para>There are several system message types which you can add handlers for. You can also add your own message types.</para>
         /// </summary>
         /// <typeparam name="T">Message type</typeparam>
         /// <param name="handler">Function handler which will be invoked for when this message type is received.</param>
         /// <param name="requireAuthentication">True if the message requires an authenticated connection</param>
-        public static void RegisterHandler<T>(Action<NetworkConnection, T> handler, bool requireAuthentication = true) where T: IMessageBase, new()
+        public static void RegisterHandler<T>(Action<NetworkConnection, T> handler, bool requireAuthentication = true) where T : IMessageBase, new()
         {
             int msgType = MessagePacker.GetId<T>();
             if (handlers.ContainsKey(msgType))
@@ -535,6 +603,24 @@ namespace Mirror
         }
 
         /// <summary>
+        /// Obsolete: Use <see cref="UnregisterHandler{T}"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use UnregisterHandler<T> instead.")]
+        public static void UnregisterHandler(int msgType)
+        {
+            handlers.Remove(msgType);
+        }
+
+        /// <summary>
+        /// Obsolete: Use <see cref="UnregisterHandler{T}"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use UnregisterHandler<T> instead.")]
+        public static void UnregisterHandler(MsgType msgType)
+        {
+            UnregisterHandler((int)msgType);
+        }
+
+        /// <summary>
         /// Unregisters a handler for a particular message type.
         /// </summary>
         /// <typeparam name="T">Message type</typeparam>
@@ -553,12 +639,60 @@ namespace Mirror
         }
 
         /// <summary>
+        /// Obsolete: Use <see cref="SendToClient{T}(int, T)"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use connection.Send(msg) instead.")]
+        public static void SendToClient(int connectionId, int msgType, MessageBase msg)
+        {
+            if (connections.TryGetValue(connectionId, out NetworkConnectionToClient conn))
+            {
+                conn.Send(msgType, msg);
+                return;
+            }
+            Debug.LogError("Failed to send message to connection ID '" + connectionId + ", not found in connection list");
+        }
+
+        /// <summary>
+        /// Send a message to the client which owns the given connection ID.
+        /// <para>It accepts the connection ID as a parameter as well as a message and MsgType. Remember to set the client up for receiving the messages by using NetworkClient.RegisterHandler. Also, for user messages you must use a MsgType with a higher ID number than MsgType.Highest.</para>
+        /// </summary>
+        /// <typeparam name="T">Message type</typeparam>
+        /// <param name="connectionId">Client connection ID.</param>
+        /// <param name="msg">Message struct to send</param>
+        [Obsolete("Use connection.Send(msg) instead")]
+        public static void SendToClient<T>(int connectionId, T msg) where T : IMessageBase
+        {
+            if (connections.TryGetValue(connectionId, out NetworkConnectionToClient conn))
+            {
+                conn.Send(msg);
+                return;
+            }
+            Debug.LogError("Failed to send message to connection ID '" + connectionId + ", not found in connection list");
+        }
+
+        /// <summary>
+        /// Obsolete: Use <see cref="SendToClientOfPlayer{T}(NetworkIdentity, T)"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use SendToClientOfPlayer<T> instead.")]
+        public static void SendToClientOfPlayer(NetworkIdentity identity, int msgType, MessageBase msg)
+        {
+            if (identity != null)
+            {
+                identity.connectionToClient.Send(msgType, msg);
+            }
+            else
+            {
+                Debug.LogError("SendToClientOfPlayer: player has no NetworkIdentity: " + identity.name);
+            }
+        }
+
+        /// <summary>
         /// send this message to the player only
         /// </summary>
         /// <typeparam name="T">Message type</typeparam>
         /// <param name="identity"></param>
         /// <param name="msg"></param>
-        public static void SendToClientOfPlayer<T>(NetworkIdentity identity, T msg) where T: IMessageBase
+        public static void SendToClientOfPlayer<T>(NetworkIdentity identity, T msg) where T : IMessageBase
         {
             if (identity != null)
             {
@@ -927,7 +1061,7 @@ namespace Mirror
 
             // convert to ArraySegment to avoid reader allocations
             // (need to handle null case too)
-            ArraySegment<byte> ownerSegment     =     ownerWritten > 0 ?     ownerWriter.ToArraySegment() : default;
+            ArraySegment<byte> ownerSegment = ownerWritten > 0 ? ownerWriter.ToArraySegment() : default;
             ArraySegment<byte> observersSegment = observersWritten > 0 ? observersWriter.ToArraySegment() : default;
 
             SpawnMessage msg = new SpawnMessage
@@ -1153,6 +1287,19 @@ namespace Mirror
             {
                 DestroyObject(identity, false);
             }
+        }
+
+        /// <summary>
+        /// Obsolete: Use <see cref="NetworkIdentity.spawned"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use NetworkIdentity.spawned[netId] instead.")]
+        public static GameObject FindLocalObject(uint netId)
+        {
+            if (NetworkIdentity.spawned.TryGetValue(netId, out NetworkIdentity identity))
+            {
+                return identity.gameObject;
+            }
+            return null;
         }
 
         static bool ValidateSceneObject(NetworkIdentity identity)

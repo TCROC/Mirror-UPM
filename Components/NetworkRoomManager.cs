@@ -22,8 +22,8 @@ namespace Mirror
     {
         public struct PendingPlayer
         {
-            public NetworkConnection Conn;
-            public GameObject RoomPlayer;
+            public NetworkConnection conn;
+            public GameObject roomPlayer;
         }
 
         [Header("Room Settings")]
@@ -56,18 +56,18 @@ namespace Mirror
         /// List of players that are in the Room
         /// </summary>
         [FormerlySerializedAs("m_PendingPlayers")]
-        public List<PendingPlayer> PendingPlayers = new List<PendingPlayer>();
+        public List<PendingPlayer> pendingPlayers = new List<PendingPlayer>();
 
         /// <summary>
         /// These slots track players that enter the room.
         /// <para>The slotId on players is global to the game - across all players.</para>
         /// </summary>
-        public List<NetworkRoomPlayer> RoomSlots = new List<NetworkRoomPlayer>();
+        public List<NetworkRoomPlayer> roomSlots = new List<NetworkRoomPlayer>();
 
         /// <summary>
         /// True when all players have submitted a Ready message
         /// </summary>
-        public bool AllPlayersReady;
+        public bool allPlayersReady;
 
         public override void OnValidate()
         {
@@ -98,12 +98,12 @@ namespace Mirror
             int CurrentPlayers = 0;
             int ReadyPlayers = 0;
 
-            foreach (NetworkRoomPlayer item in RoomSlots)
+            foreach (NetworkRoomPlayer item in roomSlots)
             {
                 if (item != null)
                 {
                     CurrentPlayers++;
-                    if (item.ReadyToBegin)
+                    if (item.readyToBegin)
                         ReadyPlayers++;
                 }
             }
@@ -111,7 +111,7 @@ namespace Mirror
             if (CurrentPlayers == ReadyPlayers)
                 CheckReadyToBegin();
             else
-                AllPlayersReady = false;
+                allPlayersReady = false;
         }
 
         /// <summary>
@@ -142,9 +142,9 @@ namespace Mirror
             {
                 // cant be ready in room, add to ready list
                 PendingPlayer pending;
-                pending.Conn = conn;
-                pending.RoomPlayer = roomPlayer;
-                PendingPlayers.Add(pending);
+                pending.conn = conn;
+                pending.roomPlayer = roomPlayer;
+                pendingPlayers.Add(pending);
                 return;
             }
 
@@ -174,21 +174,21 @@ namespace Mirror
         {
             if (SceneManager.GetActiveScene().name != RoomScene) return;
 
-            if (minPlayers > 0 && NetworkServer.connections.Count(conn => conn.Value != null && conn.Value.identity.gameObject.GetComponent<NetworkRoomPlayer>().ReadyToBegin) < minPlayers)
+            if (minPlayers > 0 && NetworkServer.connections.Count(conn => conn.Value != null && conn.Value.identity.gameObject.GetComponent<NetworkRoomPlayer>().readyToBegin) < minPlayers)
             {
-                AllPlayersReady = false;
+                allPlayersReady = false;
                 return;
             }
 
-            PendingPlayers.Clear();
-            AllPlayersReady = true;
+            pendingPlayers.Clear();
+            allPlayersReady = true;
             OnRoomServerPlayersReady();
         }
 
         void CallOnClientEnterRoom()
         {
             OnRoomClientEnter();
-            foreach (NetworkRoomPlayer player in RoomSlots)
+            foreach (NetworkRoomPlayer player in roomSlots)
                 if (player != null)
                 {
                     player.OnClientEnterRoom();
@@ -198,7 +198,7 @@ namespace Mirror
         void CallOnClientExitRoom()
         {
             OnRoomClientExit();
-            foreach (NetworkRoomPlayer player in RoomSlots)
+            foreach (NetworkRoomPlayer player in roomSlots)
                 if (player != null)
                 {
                     player.OnClientExitRoom();
@@ -243,15 +243,15 @@ namespace Mirror
                 NetworkRoomPlayer player = conn.identity.GetComponent<NetworkRoomPlayer>();
 
                 if (player != null)
-                    RoomSlots.Remove(player);
+                    roomSlots.Remove(player);
             }
 
-            AllPlayersReady = false;
+            allPlayersReady = false;
 
-            foreach (NetworkRoomPlayer player in RoomSlots)
+            foreach (NetworkRoomPlayer player in roomSlots)
             {
                 if (player != null)
-                    player.GetComponent<NetworkRoomPlayer>().ReadyToBegin = false;
+                    player.GetComponent<NetworkRoomPlayer>().readyToBegin = false;
             }
 
             if (SceneManager.GetActiveScene().name == RoomScene)
@@ -270,19 +270,19 @@ namespace Mirror
         {
             if (SceneManager.GetActiveScene().name != RoomScene) return;
 
-            if (RoomSlots.Count == maxConnections) return;
+            if (roomSlots.Count == maxConnections) return;
 
-            AllPlayersReady = false;
+            allPlayersReady = false;
 
             if (LogFilter.Debug) Debug.LogFormat("NetworkRoomManager.OnServerAddPlayer playerPrefab:{0}", roomPlayerPrefab.name);
 
             GameObject newRoomGameObject = OnRoomServerCreateRoomPlayer(conn);
             if (newRoomGameObject == null)
-                newRoomGameObject = Instantiate(roomPlayerPrefab.gameObject, Vector3.zero, Quaternion.identity);
+                newRoomGameObject = (GameObject)Instantiate(roomPlayerPrefab.gameObject, Vector3.zero, Quaternion.identity);
 
             NetworkRoomPlayer newRoomPlayer = newRoomGameObject.GetComponent<NetworkRoomPlayer>();
 
-            RoomSlots.Add(newRoomPlayer);
+            roomSlots.Add(newRoomPlayer);
 
             RecalculateRoomPlayerIndices();
 
@@ -291,11 +291,11 @@ namespace Mirror
 
         void RecalculateRoomPlayerIndices()
         {
-            if (RoomSlots.Count > 0)
+            if (roomSlots.Count > 0)
             {
-                for (int i = 0; i < RoomSlots.Count; i++)
+                for (int i = 0; i < roomSlots.Count; i++)
                 {
-                    RoomSlots[i].Index = i;
+                    roomSlots[i].index = i;
                 }
             }
         }
@@ -309,7 +309,7 @@ namespace Mirror
         {
             if (sceneName == RoomScene)
             {
-                foreach (NetworkRoomPlayer roomPlayer in RoomSlots)
+                foreach (NetworkRoomPlayer roomPlayer in roomSlots)
                 {
                     if (roomPlayer == null) continue;
 
@@ -322,7 +322,7 @@ namespace Mirror
                     if (NetworkServer.active)
                     {
                         // re-add the room object
-                        roomPlayer.GetComponent<NetworkRoomPlayer>().ReadyToBegin = false;
+                        roomPlayer.GetComponent<NetworkRoomPlayer>().readyToBegin = false;
                         NetworkServer.ReplacePlayerForConnection(identity.connectionToClient, roomPlayer.gameObject);
                     }
                 }
@@ -340,10 +340,10 @@ namespace Mirror
             if (sceneName != RoomScene)
             {
                 // call SceneLoadedForPlayer on any players that become ready while we were loading the scene.
-                foreach (PendingPlayer pending in PendingPlayers)
-                    SceneLoadedForPlayer(pending.Conn, pending.RoomPlayer);
+                foreach (PendingPlayer pending in pendingPlayers)
+                    SceneLoadedForPlayer(pending.conn, pending.roomPlayer);
 
-                PendingPlayers.Clear();
+                pendingPlayers.Clear();
             }
 
             OnRoomServerSceneChanged(sceneName);
@@ -384,7 +384,7 @@ namespace Mirror
         /// </summary>
         public override void OnStopServer()
         {
-            RoomSlots.Clear();
+            roomSlots.Clear();
             base.OnStopServer();
         }
 

@@ -32,8 +32,6 @@ namespace Mirror
 
         static ExponentialMovingAverage _rtt = new ExponentialMovingAverage(10);
         static ExponentialMovingAverage _offset = new ExponentialMovingAverage(10);
-        private static double _time;
-        private static int lastFrame;
 
         // the true offset guaranteed to be in this range
         static double offsetMin = double.MinValue;
@@ -142,24 +140,7 @@ namespace Mirror
         /// <para>in other words,  if the server is running for 2 months,
         /// and you cast down to float,  then the time will jump in 0.4s intervals.</para>
         /// </remarks>
-        public static double time
-        {
-            get
-            {
-                // paul: LocalTime is very expensive
-                // so cache the time for the duration of the frame
-                // if someone asks for .time serveral times in a frame this has significant impact
-                // this also makes it more consistent with Time.time
-                if (lastFrame != Time.frameCount)
-                {
-                    // Notice _offset is 0 at the server
-                    _time = LocalTime() - _offset.Value;
-                    lastFrame = Time.frameCount;
-                }
-                return _time;
-
-            }
-        }
+        public static double time => LocalTime() - _offset.Value;
 
         /// <summary>
         /// Measurement of the variance of time.

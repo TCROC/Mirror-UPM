@@ -9,11 +9,11 @@ using UnityEngine.Events;
 namespace Mirror
 {
     // UnityEvent definitions
-    [Serializable] public class ClientDataReceivedEvent : UnityEvent<ArraySegment<byte>, int> {}
-    [Serializable] public class UnityEventException : UnityEvent<Exception> {}
-    [Serializable] public class UnityEventInt : UnityEvent<int> {}
-    [Serializable] public class ServerDataReceivedEvent : UnityEvent<int, ArraySegment<byte>, int> {}
-    [Serializable] public class UnityEventIntException : UnityEvent<int, Exception> {}
+    [Serializable] public class ClientDataReceivedEvent : UnityEvent<ArraySegment<byte>, int> { }
+    [Serializable] public class UnityEventException : UnityEvent<Exception> { }
+    [Serializable] public class UnityEventInt : UnityEvent<int> { }
+    [Serializable] public class ServerDataReceivedEvent : UnityEvent<int, ArraySegment<byte>, int> { }
+    [Serializable] public class UnityEventIntException : UnityEvent<int, Exception> { }
 
     public abstract class Transport : MonoBehaviour
     {
@@ -147,6 +147,16 @@ namespace Mirror
         public abstract bool ServerDisconnect(int connectionId);
 
         /// <summary>
+        /// Deprecated: Use ServerGetClientAddress(int connectionId) instead
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use ServerGetClientAddress(int connectionId) instead")]
+        public virtual bool GetConnectionInfo(int connectionId, out string address)
+        {
+            address = ServerGetClientAddress(connectionId);
+            return true;
+        }
+
+        /// <summary>
         /// Get the client address
         /// </summary>
         /// <param name="connectionId">id of the client</param>
@@ -193,6 +203,6 @@ namespace Mirror
         //            e.g. in uSurvival Transport would apply Cmds before
         //            ShoulderRotation.LateUpdate, resulting in projectile
         //            spawns at the point before shoulder rotation.
-        public void Update() {}
+        public void Update() { }
     }
 }

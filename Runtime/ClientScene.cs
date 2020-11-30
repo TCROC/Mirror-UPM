@@ -94,12 +94,19 @@ namespace Mirror
 
         /// <summary>
         /// This adds a player GameObject for this client. This causes an AddPlayer message to be sent to the server, and NetworkManager.OnServerAddPlayer is called. If an extra message was passed to AddPlayer, then OnServerAddPlayer will be called with a NetworkReader that contains the contents of the message.
+        /// </summary>
+        /// <param name="readyConn">The connection to become ready for this client.</param>
+        /// <returns>True if player was added.</returns>
+        public static bool AddPlayer(NetworkConnection readyConn) => AddPlayer(readyConn, null);
+
+        /// <summary>
+        /// This adds a player GameObject for this client. This causes an AddPlayer message to be sent to the server, and NetworkManager.OnServerAddPlayer is called. If an extra message was passed to AddPlayer, then OnServerAddPlayer will be called with a NetworkReader that contains the contents of the message.
         /// <para>extraMessage can contain character selection, etc.</para>
         /// </summary>
         /// <param name="readyConn">The connection to become ready for this client.</param>
         /// <param name="extraData">An extra message object that can be passed to the server for this player.</param>
         /// <returns>True if player was added.</returns>
-        public static bool AddPlayer(NetworkConnection readyConn)
+        public static bool AddPlayer(NetworkConnection readyConn, byte[] extraData)
         {
             // ensure valid ready connection
             if (readyConn != null)
@@ -122,7 +129,12 @@ namespace Mirror
 
             if (LogFilter.Debug) Debug.Log("ClientScene.AddPlayer() called with connection [" + readyConnection + "]");
 
-            AddPlayerMessage message = new AddPlayerMessage();
+            AddPlayerMessage message = new AddPlayerMessage
+            {
+#pragma warning disable CS0618 // Type or member is obsolete
+                value = extraData
+#pragma warning restore CS0618 // Type or member is obsolete
+            };
             readyConnection.Send(message);
             return true;
         }
@@ -437,6 +449,19 @@ namespace Mirror
                 }
             }
             NetworkIdentity.spawned.Clear();
+        }
+
+        /// <summary>
+        /// Obsolete: Use <see cref="NetworkIdentity.spawned"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use NetworkIdentity.spawned[netId] instead.")]
+        public static GameObject FindLocalObject(uint netId)
+        {
+            if (NetworkIdentity.spawned.TryGetValue(netId, out NetworkIdentity identity))
+            {
+                return identity.gameObject;
+            }
+            return null;
         }
 
         static void ApplySpawnPayload(NetworkIdentity identity, SpawnMessage msg)

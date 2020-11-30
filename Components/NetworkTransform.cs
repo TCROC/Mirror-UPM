@@ -7,6 +7,6 @@ namespace Mirror
     [HelpURL("https://mirror-networking.com/docs/Components/NetworkTransform.html")]
     public class NetworkTransform : NetworkTransformBase
     {
-        protected override Transform TargetComponent => transform;
+        protected override Transform targetComponent => transform;
     }
 }

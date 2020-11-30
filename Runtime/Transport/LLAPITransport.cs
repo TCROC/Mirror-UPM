@@ -127,8 +127,8 @@ namespace Mirror
             clientId = NetworkTransport.AddHost(hostTopology, 0);
 
             clientConnectionId = NetworkTransport.Connect(clientId, address, port, 0, out error);
-            var networkError = (UnityEngine.Networking.NetworkError) error;
-            if (networkError != UnityEngine.Networking.NetworkError.Ok)
+            NetworkError networkError = (NetworkError)error;
+            if (networkError != NetworkError.Ok)
             {
                 Debug.LogWarning("NetworkTransport.Connect failed: clientId=" + clientId + " address= " + address + " port=" + port + " error=" + error);
                 clientConnectionId = -1;
@@ -177,8 +177,8 @@ namespace Mirror
             //
             // DO NOT return after error != 0. otherwise Disconnect won't be
             // registered.
-            var networkError = (UnityEngine.Networking.NetworkError)error;
-            if (networkError != UnityEngine.Networking.NetworkError.Ok)
+            NetworkError networkError = (NetworkError)error;
+            if (networkError != NetworkError.Ok)
             {
                 string message = "NetworkTransport.Receive failed: hostid=" + clientId + " connId=" + connectionId + " channelId=" + channel + " error=" + networkError;
                 OnClientError.Invoke(new Exception(message));
@@ -277,8 +277,8 @@ namespace Mirror
             //
             // DO NOT return after error != 0. otherwise Disconnect won't be
             // registered.
-            var networkError = (UnityEngine.Networking.NetworkError)error;
-            if (networkError != UnityEngine.Networking.NetworkError.Ok)
+            NetworkError networkError = (NetworkError)error;
+            if (networkError != NetworkError.Ok)
             {
                 string message = "NetworkTransport.Receive failed: hostid=" + serverHostId + " connId=" + connectionId + " channelId=" + channel + " error=" + networkError;
 
@@ -341,8 +341,8 @@ namespace Mirror
         public void LateUpdate()
         {
             // process all messages
-            while (ProcessClientMessage()) {}
-            while (ProcessServerMessage()) {}
+            while (ProcessClientMessage()) { }
+            while (ProcessServerMessage()) { }
         }
 
         public override void Shutdown()

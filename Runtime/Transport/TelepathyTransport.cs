@@ -20,6 +20,13 @@ namespace Mirror
         [Tooltip("Nagle Algorithm can be disabled by enabling NoDelay")]
         public bool NoDelay = true;
 
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use MaxMessageSizeFromClient or MaxMessageSizeFromServer instead.")]
+        public int MaxMessageSize
+        {
+            get => serverMaxMessageSize;
+            set => serverMaxMessageSize = clientMaxMessageSize = value;
+        }
+
         [Tooltip("Protect against allocation attacks by keeping the max message size small. Otherwise an attacker might send multiple fake packets with 2GB headers, causing the server to run out of memory after allocating multiple large packets.")]
         [FormerlySerializedAs("MaxMessageSize")] public int serverMaxMessageSize = 16 * 1024;
 
@@ -108,8 +115,8 @@ namespace Mirror
             // note: we need to check enabled in case we set it to false
             // when LateUpdate already started.
             // (https://github.com/vis2k/Mirror/pull/379)
-            while (enabled && ProcessClientMessage()) {}
-            while (enabled && ProcessServerMessage()) {}
+            while (enabled && ProcessClientMessage()) { }
+            while (enabled && ProcessServerMessage()) { }
         }
 
         // server

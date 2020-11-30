@@ -66,7 +66,7 @@ namespace Mirror
             // find public SyncVars to show (user doesn't want protected ones to be shown in inspector)
             foreach (FieldInfo field in scriptClass.GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
-                var fieldMarkers = (Attribute[])field.GetCustomAttributes(typeof(SyncVarAttribute), true);
+                Attribute[] fieldMarkers = (Attribute[])field.GetCustomAttributes(typeof(SyncVarAttribute), true);
                 if (fieldMarkers.Length > 0)
                 {
                     syncVarNames.Add(field.Name);
@@ -93,7 +93,7 @@ namespace Mirror
                 if (scriptProperty == null)
                     return;
 
-                var targetScript = scriptProperty.objectReferenceValue as MonoScript;
+                MonoScript targetScript = scriptProperty.objectReferenceValue as MonoScript;
                 Init(targetScript);
             }
 
@@ -175,7 +175,7 @@ namespace Mirror
             // (no need to show it if the class only has Cmds/Rpcs and no sync)
             if (syncsAnything)
             {
-                var networkBehaviour = target as NetworkBehaviour;
+                NetworkBehaviour networkBehaviour = target as NetworkBehaviour;
                 if (networkBehaviour != null)
                 {
                     // syncMode
