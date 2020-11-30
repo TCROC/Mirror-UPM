@@ -71,9 +71,6 @@ namespace Mirror
         static UnityEngine.AsyncOperation loadingSceneAsync;
         static NetworkConnection clientReadyConnection;
 
-        // this is used to persist network address between scenes.
-        static string address;
-
         // virtual so that inheriting classes' Awake() can call base.Awake() too
         public virtual void Awake()
         {
@@ -126,16 +123,6 @@ namespace Mirror
             // set active transport AFTER setting singleton.
             // so only if we didn't destroy ourselves.
             Transport.activeTransport = transport;
-
-            // persistent network address between scene changes
-            if (networkAddress != "")
-            {
-                address = networkAddress;
-            }
-            else if (address != "")
-            {
-                networkAddress = address;
-            }
         }
 
         public virtual void Start()
@@ -343,7 +330,6 @@ namespace Mirror
             NetworkClient.Connect(networkAddress);
 
             OnStartClient();
-            address = networkAddress;
         }
 
         public virtual void StartHost()
@@ -401,7 +387,6 @@ namespace Mirror
             NetworkClient.Disconnect();
             NetworkClient.Shutdown();
 
-            ClientScene.DestroyAllClientObjects();
             if (!string.IsNullOrEmpty(offlineScene))
             {
                 // Must pass true or offlineScene will not be loaded
@@ -554,8 +539,7 @@ namespace Mirror
 
             if (networkSceneName != "" && networkSceneName != offlineScene)
             {
-                SceneMessage msg = new SceneMessage(networkSceneName);
-                conn.Send(msg);
+                conn.Send(new SceneMessage(networkSceneName));
             }
 
             OnServerConnect(conn);

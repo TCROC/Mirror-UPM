@@ -36,6 +36,7 @@ namespace Mirror
             readyConnection = null;
             ready = false;
             isSpawnFinished = false;
+            DestroyAllClientObjects();
         }
 
         // this is called from message handler for Owner message
@@ -87,11 +88,11 @@ namespace Mirror
 
             if (LogFilter.Debug) Debug.Log("ClientScene.AddPlayer() called with connection [" + readyConnection + "]");
 
-            AddPlayerMessage msg = new AddPlayerMessage()
+            AddPlayerMessage message = new AddPlayerMessage()
             {
                 value = extraData
             };
-            readyConnection.Send(msg);
+            readyConnection.Send(message);
             return true;
         }
 
@@ -101,8 +102,7 @@ namespace Mirror
 
             if (readyConnection.playerController != null)
             {
-                RemovePlayerMessage msg = new RemovePlayerMessage();
-                readyConnection.Send(msg);
+                readyConnection.Send(new RemovePlayerMessage());
 
                 Object.Destroy(readyConnection.playerController.gameObject);
 
@@ -473,6 +473,7 @@ namespace Mirror
         {
             DestroyObject(msg.netId);
         }
+
         internal static void OnObjectDestroy(NetworkConnection conn, ObjectDestroyMessage msg)
         {
             DestroyObject(msg.netId);

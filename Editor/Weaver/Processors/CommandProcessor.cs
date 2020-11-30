@@ -38,7 +38,6 @@ namespace Mirror.Weaver
             }
 
             ILProcessor cmdWorker = cmd.Body.GetILProcessor();
-            Instruction label = cmdWorker.Create(OpCodes.Nop);
 
             NetworkBehaviourProcessor.WriteSetupLocals(cmdWorker);
 
@@ -68,7 +67,7 @@ namespace Mirror.Weaver
             NetworkBehaviourProcessor.WriteCreateWriter(cmdWorker);
 
             // write all the arguments that the user passed to the Cmd call
-            if (!NetworkBehaviourProcessor.WriteArguments(cmdWorker, md, "Command", false))
+            if (!NetworkBehaviourProcessor.WriteArguments(cmdWorker, md, false))
                 return null;
 
             string cmdName = md.Name;
