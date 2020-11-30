@@ -91,10 +91,12 @@ jobs:
             echo "Moving file at path $GITHUB_WORKSPACE/theirRepo/$upmFile"
             sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmFile" "$GITHUB_WORKSPACE/myRepo/"
           done
-          for upmParentFolder in $UPM_FOLDER_CONTENTS
+          for upmParentFolder in $UPM_FOLDER_CONTENTS/!(Tests)/
           do
+          if [[ "$upmParentFolder" != "" && "$theirTag" == *"$excludedSubstring"* ]]; then
             echo "Moving file at path $GITHUB_WORKSPACE/theirRepo/$upmFile"
             sudo mv -v "$GITHUB_WORKSPACE/theirRepo/$upmParentFolder"/* "$GITHUB_WORKSPACE/myRepo/"
+          fi
           done
           sudo cp -a "$GITHUB_WORKSPACE/UPM-Files/." "$GITHUB_WORKSPACE/myRepo/"
           package=$(cat package.json)
