@@ -442,7 +442,7 @@ namespace Mirror
 
         void ClientChangeScene(string newSceneName, bool forceReload)
         {
-            ClientChangeScene(networkSceneName, forceReload, LoadSceneMode.Single, LocalPhysicsMode.None);
+            ClientChangeScene(newSceneName, forceReload, LoadSceneMode.Single, LocalPhysicsMode.None);
         }
 
         internal void ClientChangeScene(string newSceneName, bool forceReload, LoadSceneMode sceneMode, LocalPhysicsMode physicsMode)
@@ -651,11 +651,9 @@ namespace Mirror
         {
             if (LogFilter.Debug) Debug.Log("NetworkManager.OnClientSceneInternal");
 
-            string newSceneName = msg.sceneName;
-
             if (NetworkClient.isConnected && !NetworkServer.active)
             {
-                ClientChangeScene(newSceneName, true);
+                ClientChangeScene(msg.sceneName, true, msg.sceneMode, msg.physicsMode);
             }
         }
         #endregion
