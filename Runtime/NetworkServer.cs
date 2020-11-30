@@ -20,6 +20,9 @@ namespace Mirror
         static bool initialized;
         static int maxConnections;
 
+        /// <summary>
+        /// The connection to the host mode client (if any).
+        /// </summary>
         // original HLAPI has .localConnections list with only m_LocalConnection in it
         // (for backwards compatibility because they removed the real localConnections list a while ago)
         // => removed it for easier code. use .localConnection now!
@@ -592,7 +595,19 @@ namespace Mirror
             {
                 if (LogFilter.Debug) Debug.Log("NetworkServer.RegisterHandler replacing " + msgType);
             }
-            handlers[msgType] = MessagePacker.MessageHandler<T>(handler, requireAuthentication);
+            handlers[msgType] = MessagePacker.MessageHandler(handler, requireAuthentication);
+        }
+
+        /// <summary>
+        /// Register a handler for a particular message type.
+        /// <para>There are several system message types which you can add handlers for. You can also add your own message types.</para>
+        /// </summary>
+        /// <typeparam name="T">Message type</typeparam>
+        /// <param name="handler">Function handler which will be invoked for when this message type is received.</param>
+        /// <param name="requireAuthentication">True if the message requires an authenticated connection</param>
+        public static void RegisterHandler<T>(Action<T> handler, bool requireAuthentication = true) where T : IMessageBase, new()
+        {
+            RegisterHandler<T>((_, value) => { handler(value); }, requireAuthentication);
         }
 
         /// <summary>
@@ -808,7 +823,7 @@ namespace Mirror
             conn.identity = identity;
 
             // Set the connection on the NetworkIdentity on the server, NetworkIdentity.SetLocalPlayer is not called on the server (it is on clients)
-            identity.connectionToClient = conn;
+            identity.connectionToClient = (NetworkConnectionToClient)conn;
 
             // set ready if not set yet
             SetClientReady(conn);
@@ -860,7 +875,7 @@ namespace Mirror
             {
                 // it is allowed to provide an already spawned object as the new player object.
                 // so dont spawn it again.
-                Spawn(playerGameObject);
+                Spawn(playerGameObject, identity.connectionToClient);
             }
         }
 
@@ -880,13 +895,13 @@ namespace Mirror
             if (conn.identity != null)
             {
                 conn.identity.SetNotLocalPlayer();
-                conn.identity.clientAuthorityOwner = null;
+                conn.identity.connectionToClient = null;
             }
 
             conn.identity = identity;
 
             // Set the connection on the NetworkIdentity on the server, NetworkIdentity.SetLocalPlayer is not called on the server (it is on clients)
-            identity.connectionToClient = conn;
+            identity.connectionToClient = (NetworkConnectionToClient)conn;
 
             //NOTE: DONT set connection ready.
 
@@ -1016,20 +1031,17 @@ namespace Mirror
             // Commands can be for player objects, OR other objects with client-authority
             // -> so if this connection's controller has a different netId then
             //    only allow the command if clientAuthorityOwner
-            if (conn.identity != null && conn.identity.netId != identity.netId)
+            if (identity.connectionToClient != conn)
             {
-                if (identity.clientAuthorityOwner != conn)
-                {
-                    Debug.LogWarning("Command for object without authority [netId=" + msg.netId + "]");
-                    return;
-                }
+                Debug.LogWarning("Command for object without authority [netId=" + msg.netId + "]");
+                return;
             }
 
             if (LogFilter.Debug) Debug.Log("OnCommandMessage for netId=" + msg.netId + " conn=" + conn);
             identity.HandleCommand(msg.componentIndex, msg.functionHash, new NetworkReader(msg.payload));
         }
 
-        internal static void SpawnObject(GameObject obj)
+        internal static void SpawnObject(GameObject obj, NetworkConnection ownerConnection)
         {
             if (!active)
             {
@@ -1044,13 +1056,13 @@ namespace Mirror
                 return;
             }
             identity.Reset();
+            identity.connectionToClient = (NetworkConnectionToClient)ownerConnection;
 
             identity.OnStartServer(false);
 
             if (LogFilter.Debug) Debug.Log("SpawnObject instance ID " + identity.netId + " asset ID " + identity.assetId);
 
             identity.RebuildObservers(true);
-            //SendSpawnMessage(objNetworkIdentity, null);
         }
 
         internal static void SendSpawnMessage(NetworkIdentity identity, NetworkConnection conn)
@@ -1074,89 +1086,46 @@ namespace Mirror
             ArraySegment<byte> ownerSegment     =     ownerWritten > 0 ?     ownerWriter.ToArraySegment() : default;
             ArraySegment<byte> observersSegment = observersWritten > 0 ? observersWriter.ToArraySegment() : default;
 
-            // 'identity' is a prefab that should be spawned
-            if (identity.sceneId == 0)
+            SpawnMessage msg = new SpawnMessage
             {
-                SpawnMessage msg = new SpawnMessage
-                {
-                    netId = identity.netId,
-                    isLocalPlayer = conn?.identity == identity,
-                    assetId = identity.assetId,
-                    // use local values for VR support
-                    position = identity.transform.localPosition,
-                    rotation = identity.transform.localRotation,
-                    scale = identity.transform.localScale
-                };
+                netId = identity.netId,
+                isLocalPlayer = conn?.identity == identity,
+                isOwner = identity.connectionToClient == conn && conn != null,
+                sceneId = identity.sceneId,
+                assetId = identity.assetId,
+                // use local values for VR support
+                position = identity.transform.localPosition,
+                rotation = identity.transform.localRotation,
+                scale = identity.transform.localScale
+            };
 
-                // conn is != null when spawning it for a client
-                if (conn != null)
-                {
-                    // use owner segment if 'conn' owns this identity, otherwise
-                    // use observers segment
-                    bool isOwner = identity.connectionToClient == conn;
-                    msg.payload = isOwner ? ownerSegment : observersSegment;
+            // conn is != null when spawning it for a client
+            if (conn != null)
+            {
+                // use owner segment if 'conn' owns this identity, otherwise
+                // use observers segment
+                msg.payload = msg.isOwner ? ownerSegment : observersSegment;
 
-                    conn.Send(msg);
-                }
-                // conn is == null when spawning it for the local player
-                else
-                {
-                    // send ownerWriter to owner
-                    // (spawn no matter what, even if no components were
-                    //  serialized because the spawn message contains more data.
-                    //  components might still be updated later on.)
-                    msg.payload = ownerSegment;
-                    SendToClientOfPlayer(identity, msg);
-
-                    // send observersWriter to everyone but owner
-                    // (spawn no matter what, even if no components were
-                    //  serialized because the spawn message contains more data.
-                    //  components might still be updated later on.)
-                    msg.payload = observersSegment;
-                    SendToReady(identity, msg, false);
-                }
+                conn.Send(msg);
             }
-            // 'identity' is a scene object that should be spawned again
+            // conn is == null when spawning it for the local player
             else
             {
-                SpawnMessage msg = new SpawnMessage
-                {
-                    netId = identity.netId,
-                    isLocalPlayer = conn?.identity == identity,
-                    sceneId = identity.sceneId,
-                    // use local values for VR support
-                    position = identity.transform.localPosition,
-                    rotation = identity.transform.localRotation,
-                    scale = identity.transform.localScale
-                };
+                // send ownerWriter to owner
+                // (spawn no matter what, even if no components were
+                //  serialized because the spawn message contains more data.
+                //  components might still be updated later on.)
+                msg.payload = ownerSegment;
+                msg.isOwner = true;
+                SendToClientOfPlayer(identity, msg);
 
-                // conn is != null when spawning it for a client
-                if (conn != null)
-                {
-                    // use owner segment if 'conn' owns this identity, otherwise
-                    // use observers segment
-                    bool isOwner = identity.connectionToClient == conn;
-                    msg.payload = isOwner ? ownerSegment : observersSegment;
-
-                    conn.Send(msg);
-                }
-                // conn is == null when spawning it for the local player
-                else
-                {
-                    // send ownerWriter to owner
-                    // (spawn no matter what, even if no components were
-                    //  serialized because the spawn message contains more data.
-                    //  components might still be updated later on.)
-                    msg.payload = ownerSegment;
-                    SendToClientOfPlayer(identity, msg);
-
-                    // send observersWriter to everyone but owner
-                    // (spawn no matter what, even if no components were
-                    //  serialized because the spawn message contains more data.
-                    //  components might still be updated later on.)
-                    msg.payload = observersSegment;
-                    SendToReady(identity, msg, false);
-                }
+                // send observersWriter to everyone but owner
+                // (spawn no matter what, even if no components were
+                //  serialized because the spawn message contains more data.
+                //  components might still be updated later on.)
+                msg.payload = observersSegment;
+                msg.isOwner = false;
+                SendToReady(identity, msg, false);
             }
 
             NetworkWriterPool.Recycle(ownerWriter);
@@ -1182,11 +1151,12 @@ namespace Mirror
         /// <para>This will cause a new object to be instantiated from the registered prefab, or from a custom spawn function.</para>
         /// </summary>
         /// <param name="obj">Game object with NetworkIdentity to spawn.</param>
-        public static void Spawn(GameObject obj)
+        /// <param name="ownerConnection">The connection that has authority over the object</param>
+        public static void Spawn(GameObject obj, NetworkConnection ownerConnection = null)
         {
             if (VerifyCanSpawn(obj))
             {
-                SpawnObject(obj);
+                SpawnObject(obj, ownerConnection);
             }
         }
 
@@ -1217,55 +1187,58 @@ namespace Mirror
         }
 
         /// <summary>
+        /// Obsolete: Use <see cref="Spawn(GameObject, GameObject)"/> instead.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use Spawn(GameObject, GameObject) instead.")]
+        public static bool SpawnWithClientAuthority(GameObject obj, GameObject player)
+        {
+            Spawn(obj, player);
+            return true;
+        }
+
+        /// <summary>
         /// This spawns an object like NetworkServer.Spawn() but also assigns Client Authority to the specified client.
         /// <para>This is the same as calling NetworkIdentity.AssignClientAuthority on the spawned object.</para>
         /// </summary>
         /// <param name="obj">The object to spawn.</param>
         /// <param name="player">The player object to set Client Authority to.</param>
-        /// <returns></returns>
-        public static bool SpawnWithClientAuthority(GameObject obj, GameObject player)
+        public static void Spawn(GameObject obj, GameObject player)
         {
             NetworkIdentity identity = player.GetComponent<NetworkIdentity>();
             if (identity == null)
             {
-                Debug.LogError("SpawnWithClientAuthority player object has no NetworkIdentity");
-                return false;
+                Debug.LogError("Player object has no NetworkIdentity");
+                return;
             }
 
             if (identity.connectionToClient == null)
             {
-                Debug.LogError("SpawnWithClientAuthority player object is not a player.");
-                return false;
+                Debug.LogError("Player object is not a player.");
+                return;
             }
 
-            return SpawnWithClientAuthority(obj, identity.connectionToClient);
+            Spawn(obj, identity.connectionToClient);
+        }
+
+
+        /// <summary>
+        /// Use <see cref="Spawn(GameObject, NetworkConnection)"/> instead
+        /// </summary>
+        [Obsolete("Use Spawn(obj, connection) instead")]
+        public static bool SpawnWithClientAuthority(GameObject obj, NetworkConnection ownerConnection)
+        {
+            Spawn(obj, ownerConnection);
+            return true;
         }
 
         /// <summary>
-        /// This spawns an object like NetworkServer.Spawn() but also assigns Client Authority to the specified client.
-        /// <para>This is the same as calling NetworkIdentity.AssignClientAuthority on the spawned object.</para>
+        /// Use <see cref="Spawn(GameObject, Guid, NetworkConnection)"/> instead
         /// </summary>
-        /// <param name="obj">The object to spawn.</param>
-        /// <param name="conn">The connection to set Client Authority to.</param>
-        /// <returns></returns>
-        public static bool SpawnWithClientAuthority(GameObject obj, NetworkConnection conn)
+        [Obsolete("Use Spawn(obj, assetId, connection) instead")]
+        public static bool SpawnWithClientAuthority(GameObject obj, Guid assetId, NetworkConnection ownerConnection)
         {
-            if (!conn.isReady)
-            {
-                Debug.LogError("SpawnWithClientAuthority NetworkConnection is not ready!");
-                return false;
-            }
-
-            Spawn(obj);
-
-            NetworkIdentity identity = obj.GetComponent<NetworkIdentity>();
-            if (identity == null || !identity.isServer)
-            {
-                // spawning the object failed.
-                return false;
-            }
-
-            return identity.AssignClientAuthority(conn);
+            Spawn(obj, assetId, ownerConnection);
+            return true;
         }
 
         /// <summary>
@@ -1274,29 +1247,8 @@ namespace Mirror
         /// </summary>
         /// <param name="obj">The object to spawn.</param>
         /// <param name="assetId">The assetId of the object to spawn. Used for custom spawn handlers.</param>
-        /// <param name="conn">The connection to set Client Authority to.</param>
-        /// <returns></returns>
-        public static bool SpawnWithClientAuthority(GameObject obj, Guid assetId, NetworkConnection conn)
-        {
-            Spawn(obj, assetId);
-
-            NetworkIdentity identity = obj.GetComponent<NetworkIdentity>();
-            if (identity == null || !identity.isServer)
-            {
-                // spawning the object failed.
-                return false;
-            }
-
-            return identity.AssignClientAuthority(conn);
-        }
-
-        /// <summary>
-        /// This spawns an object like NetworkServer.Spawn() but also assigns Client Authority to the specified client.
-        /// <para>This is the same as calling NetworkIdentity.AssignClientAuthority on the spawned object.</para>
-        /// </summary>
-        /// <param name="obj">The object to spawn.</param>
-        /// <param name="assetId">The assetId of the object to spawn. Used for custom spawn handlers.</param>
-        public static void Spawn(GameObject obj, Guid assetId)
+        /// <param name="ownerConnection">The connection that has authority over the object</param>
+        public static void Spawn(GameObject obj, Guid assetId, NetworkConnection ownerConnection = null)
         {
             if (VerifyCanSpawn(obj))
             {
@@ -1304,7 +1256,7 @@ namespace Mirror
                 {
                     identity.assetId = assetId;
                 }
-                SpawnObject(obj);
+                SpawnObject(obj, ownerConnection);
             }
         }
 
@@ -1313,7 +1265,7 @@ namespace Mirror
             if (LogFilter.Debug) Debug.Log("DestroyObject instance:" + identity.netId);
             NetworkIdentity.spawned.Remove(identity.netId);
 
-            identity.clientAuthorityOwner?.RemoveOwnedObject(identity);
+            identity.connectionToClient?.RemoveOwnedObject(identity);
 
             ObjectDestroyMessage msg = new ObjectDestroyMessage
             {
