@@ -448,13 +448,6 @@ namespace Mirror
         {
             OnRoomStopClient();
             CallOnClientExitRoom();
-
-            if (!string.IsNullOrEmpty(offlineScene))
-            {
-                // Move the RoomManager from the virtual DontDestroyOnLoad scene to the Game scene.
-                // This let's it be destroyed when client changes to the Offline scene.
-                SceneManager.MoveGameObjectToScene(gameObject, SceneManager.GetActiveScene());
-            }
         }
 
         /// <summary>
@@ -537,7 +530,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Obsolete: Use <see cref="OnRoomServerCreateGamePlayer{NetworkConnection conn, GameObject roomPlayer}"/> instead.
+        /// Obsolete: Use <see cref="OnRoomServerCreateGamePlayer(NetworkConnection, GameObject)"/> instead.
         /// </summary>
         /// <param name="conn">The connection the player object is for.</param>
         /// <returns>A new GamePlayer object.</returns>
