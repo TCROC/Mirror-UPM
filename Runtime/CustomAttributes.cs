@@ -4,12 +4,6 @@ using UnityEngine;
 
 namespace Mirror
 {
-    [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use NetworkBehaviour.syncInterval field instead. Can be modified in the Inspector too.")]
-    [AttributeUsage(AttributeTargets.Class)]
-    public class NetworkSettingsAttribute : Attribute
-    {
-        public float sendInterval = 0.1f;
-    }
 
     /// <summary>
     /// SyncVars are used to synchronize a variable from the server to all clients automatically.
@@ -18,6 +12,7 @@ namespace Mirror
     [AttributeUsage(AttributeTargets.Field)]
     public class SyncVarAttribute : Attribute
     {
+        ///<summary>A function that should be called on the client when the value changes.</summary>
         public string hook;
     }
 

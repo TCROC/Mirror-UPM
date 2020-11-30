@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Mono.CecilX;
 
 namespace Mirror.Weaver

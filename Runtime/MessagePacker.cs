@@ -33,30 +33,6 @@ namespace Mirror
         // pack message before sending
         // -> NetworkWriter passed as arg so that we can use .ToArraySegment
         //    and do an allocation free send before recycling it.
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use Pack<T> instead")]
-        public static byte[] PackMessage(int msgType, MessageBase msg)
-        {
-            NetworkWriter writer = NetworkWriterPool.GetWriter();
-            try
-            {
-                // write message type
-                writer.WriteInt16((short)msgType);
-
-                // serialize message into writer
-                msg.Serialize(writer);
-
-                // return byte[]
-                return writer.ToArray();
-            }
-            finally
-            {
-                NetworkWriterPool.Recycle(writer);
-            }
-        }
-
-        // pack message before sending
-        // -> NetworkWriter passed as arg so that we can use .ToArraySegment
-        //    and do an allocation free send before recycling it.
         public static void Pack<T>(T message, NetworkWriter writer) where T : IMessageBase
         {
             // if it is a value type,  just use typeof(T) to avoid boxing
@@ -89,6 +65,11 @@ namespace Mirror
         // unpack a message we received
         public static T Unpack<T>(byte[] data) where T : IMessageBase, new()
         {
+            return Unpack<T>(new ArraySegment<byte>(data));
+        }
+
+        public static T Unpack<T>(ArraySegment<byte> data) where T : IMessageBase, new()
+        {
             NetworkReader reader = new NetworkReader(data);
 
             int msgType = GetId<T>();
@@ -101,7 +82,6 @@ namespace Mirror
             message.Deserialize(reader);
             return message;
         }
-
         // unpack message after receiving
         // -> pass NetworkReader so it's less strange if we create it in here
         //    and pass it upwards.

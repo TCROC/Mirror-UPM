@@ -103,12 +103,6 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Obsolete: Use <see cref="syncObjects"/> instead.
-        /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use syncObjects instead.")]
-        protected List<SyncObject> m_SyncObjects => syncObjects;
-
-        /// <summary>
         /// objects that can synchronize themselves, such as synclists
         /// </summary>
         protected readonly List<SyncObject> syncObjects = new List<SyncObject>();
@@ -125,11 +119,14 @@ namespace Mirror
         {
             get
             {
-                if (netIdentityCache == null)
+                // in this specific case,  we want to know if we have set it before
+                // so we can compare if the reference is null
+                // instead of calling unity's MonoBehaviour == operator
+                if (((object)netIdentityCache) == null)
                 {
                     netIdentityCache = GetComponent<NetworkIdentity>();
                 }
-                if (netIdentityCache == null)
+                if (((object)netIdentityCache) == null)
                 {
                     Debug.LogError("There is no NetworkIdentity on " + name + ". Please add one.");
                 }
@@ -756,6 +753,7 @@ namespace Mirror
         /// <para>This can be used as a hook to invoke effects or do client specific cleanup.</para>
         /// </summary>
         [EditorBrowsable(EditorBrowsableState.Never)]
+        ///<summary>Called on clients when the server destroys the GameObject.</summary>
         public virtual void OnNetworkDestroy() {}
 
         /// <summary>
@@ -801,9 +799,6 @@ namespace Mirror
         {
             return false;
         }
-
-        [Obsolete("Rename to OnSetHostVisibility instead.")]
-        public virtual void OnSetLocalVisibility(bool visible) {}
 
         /// <summary>
         /// Callback used by the visibility system for objects on a host.
