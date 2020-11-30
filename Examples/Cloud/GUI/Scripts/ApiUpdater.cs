@@ -1,8 +1,8 @@
 using System;
-using Mirror.CloudServices.ListServerService;
+using Mirror.Cloud.ListServerService;
 using UnityEngine;
 
-namespace Mirror.CloudServices.Example
+namespace Mirror.Cloud.Example
 {
     /// <summary>
     /// This component should be put on the NetworkManager object
@@ -11,6 +11,7 @@ namespace Mirror.CloudServices.Example
     {
         NetworkManagerListServer manager;
         ApiConnector connector;
+        public string gameName = "Game";
 
         void Start()
         {
@@ -70,7 +71,7 @@ namespace Mirror.CloudServices.Example
 
             connector.ListServer.ServerApi.AddServer(new ServerJson
             {
-                displayName = $"Pong Game {(UnityEngine.Random.value * 1000).ToString("0")}",
+                displayName = $"{gameName} {(UnityEngine.Random.value * 1000).ToString("0")}",
                 protocol = protocol,
                 port = port,
                 maxPlayerCount = NetworkManager.singleton.maxConnections,
