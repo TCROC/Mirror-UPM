@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Mono.CecilX;
 using Mono.CecilX.Cil;
@@ -6,7 +5,7 @@ using Mono.CecilX.Cil;
 namespace Mirror.Weaver
 {
 
-    public class Writers
+    public static class Writers
     {
         const int MaxRecursionCount = 128;
 
