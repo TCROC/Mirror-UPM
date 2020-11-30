@@ -87,9 +87,12 @@ namespace Mirror
         }
 
         // headless mode detection
+        public static bool isHeadless => SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null;
+
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("This is a static property now...use `isHeadless` instead of `IsHeadless()`.  This method will be removed by summer 2019.")]
         public static bool IsHeadless()
         {
-            return SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null;
+            return isHeadless;
         }
 
         void InitializeSingleton()
@@ -132,7 +135,7 @@ namespace Mirror
             // some transports might not be ready until Start.
             //
             // (tick rate is applied in StartServer!)
-            if (IsHeadless() && startOnHeadless)
+            if (isHeadless && startOnHeadless)
             {
                 StartServer();
             }
@@ -235,7 +238,7 @@ namespace Mirror
             // * if not in Editor (it doesn't work in the Editor)
             // * if not in Host mode
 #if !UNITY_EDITOR
-            if (!NetworkClient.active && IsHeadless())
+            if (!NetworkClient.active && isHeadless)
             {
                 Application.targetFrameRate = serverTickRate;
                 Debug.Log("Server Tick Rate set to: " + Application.targetFrameRate + " Hz.");
@@ -505,6 +508,12 @@ namespace Mirror
         {
             if (LogFilter.Debug) Debug.Log("RegisterStartPosition: (" + start.gameObject.name + ") " + start.position);
             startPositions.Add(start);
+
+            // reorder the list so that round-robin spawning uses the start positions
+            // in hierarchy order.  This assumes all objects with NetworkStartPosition
+            // component are siblings, either in the scene root or together as children
+            // under a single parent in the scene.
+            startPositions = startPositions.OrderBy(transform => transform.GetSiblingIndex()).ToList();
         }
 
         public static void UnRegisterStartPosition(Transform start)
