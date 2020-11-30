@@ -16,7 +16,7 @@ namespace Mirror
         public string address;
         public float lastMessageTime;
         public NetworkIdentity playerController { get; internal set; }
-        public HashSet<uint> clientOwnedObjects = new HashSet<uint>();
+        public readonly HashSet<uint> clientOwnedObjects = new HashSet<uint>();
         public bool logNetworkMessages;
 
         // this is always true for regular connections, false for local
@@ -99,6 +99,7 @@ namespace Mirror
             messageHandlers = handlers;
         }
 
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use NetworkClient/NetworkServer.RegisterHandler<T> instead")]
         public void RegisterHandler(short msgType, NetworkMessageDelegate handler)
         {
             if (messageHandlers.ContainsKey(msgType))
@@ -108,6 +109,7 @@ namespace Mirror
             messageHandlers[msgType] = handler;
         }
 
+        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("Use NetworkClient/NetworkServer.UnregisterHandler<T> instead")]
         public void UnregisterHandler(short msgType)
         {
             messageHandlers.Remove(msgType);
@@ -189,7 +191,7 @@ namespace Mirror
             return InvokeHandler(msgType, null);
         }
 
-        public bool InvokeHandler(int msgType, NetworkReader reader)
+        internal bool InvokeHandler(int msgType, NetworkReader reader)
         {
             if (messageHandlers.TryGetValue(msgType, out NetworkMessageDelegate msgDelegate))
             {
@@ -223,39 +225,23 @@ namespace Mirror
         //          and in NetworkServer/Client Update. HandleBytes already takes exactly one.
         public virtual void TransportReceive(byte[] buffer)
         {
-            // protect against DOS attacks if attackers try to send invalid
-            // data packets to crash the server/client. there are a thousand
-            // ways to cause an exception in data handling:
-            // - invalid headers
-            // - invalid message ids
-            // - invalid data causing exceptions
-            // - negative ReadBytesAndSize prefixes
-            // - invalid utf8 strings
-            // - etc.
-            //
-            // let's catch them all and then disconnect that connection to avoid
-            // further attacks.
-            try
+            // unpack message
+            NetworkReader reader = new NetworkReader(buffer);
+            if (!MessagePacker.UnpackMessage(reader, out int msgType))
             {
-                // unpack message
-                NetworkReader reader = new NetworkReader(buffer);
-                MessagePacker.UnpackMessage(reader, out int msgType);
-
-                if (logNetworkMessages)
-                {
-                    Debug.Log("ConnectionRecv con:" + connectionId + " msgType:" + msgType + " content:" + BitConverter.ToString(buffer));
-                }
-
-                // try to invoke the handler for that message
-                if (InvokeHandler(msgType, reader))
-                {
-                    lastMessageTime = Time.time;
-                }
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError("Closed connection: " + connectionId + ". This can happen if the other side accidentally (or an attacker intentionally) sent invalid data. Reason: " + exception);
+                Debug.LogError("Closed connection: " + connectionId + ". Invalid message header.");
                 Disconnect();
+            }
+
+            if (logNetworkMessages)
+            {
+                Debug.Log("ConnectionRecv con:" + connectionId + " msgType:" + msgType + " content:" + BitConverter.ToString(buffer));
+            }
+
+            // try to invoke the handler for that message
+            if (InvokeHandler(msgType, reader))
+            {
+                lastMessageTime = Time.time;
             }
         }
 
