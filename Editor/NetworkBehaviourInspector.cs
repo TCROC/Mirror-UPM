@@ -12,17 +12,12 @@ namespace Mirror
     [CanEditMultipleObjects]
     public class NetworkBehaviourInspector : Editor
     {
-        bool initialized;
         /// <summary>
         /// List of all visible syncVars in target class
         /// </summary>
         protected List<string> syncVarNames = new List<string>();
         bool syncsAnything;
         bool[] showSyncLists;
-
-        // this might be able to be removed right away as it is internal and has no references
-        [System.Obsolete("Override OnInspectorGUI instead")]
-        internal virtual bool HideScriptField => false;
 
         // does this type sync anything? otherwise we don't need to show syncInterval
         bool SyncsAnything(Type scriptClass)
@@ -62,15 +57,15 @@ namespace Mirror
             syncVarNames = new List<string>();
             foreach (FieldInfo field in InspectorHelper.GetAllFields(scriptClass, typeof(NetworkBehaviour)))
             {
-                if (field.IsSyncVar() && field.IsVisibleInInspector())
+                if (field.IsSyncVar() && field.IsVisibleField())
                 {
                     syncVarNames.Add(field.Name);
                 }
             }
 
-            int numSyncLists = scriptClass.GetFields().Count(
-                field => field.FieldType.BaseType != null &&
-                         field.FieldType.BaseType.Name.Contains("SyncList"));
+            int numSyncLists = InspectorHelper.GetAllFields(serializedObject.targetObject.GetType(), typeof(NetworkBehaviour))
+                .Count(field => field.IsSyncObject() && field.IsVisibleSyncObject());
+
             if (numSyncLists > 0)
             {
                 showSyncLists = new bool[numSyncLists];
@@ -82,11 +77,18 @@ namespace Mirror
         public override void OnInspectorGUI()
         {
             DrawDefaultInspector();
+
+            if (showSyncLists.Length > 0)
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Sync Lists", EditorStyles.boldLabel);
+            }
+
             // find SyncLists.. they are not properties.
             int syncListIndex = 0;
-            foreach (FieldInfo field in serializedObject.targetObject.GetType().GetFields())
+            foreach (FieldInfo field in InspectorHelper.GetAllFields(serializedObject.targetObject.GetType(), typeof(NetworkBehaviour)))
             {
-                if (field.FieldType.BaseType != null && field.FieldType.BaseType.Name.Contains("SyncList"))
+                if (field.IsSyncObject() && field.IsVisibleSyncObject())
                 {
                     showSyncLists[syncListIndex] = EditorGUILayout.Foldout(showSyncLists[syncListIndex], "SyncList " + field.Name + "  [" + field.FieldType.Name + "]");
                     if (showSyncLists[syncListIndex])
@@ -118,6 +120,7 @@ namespace Mirror
                 NetworkBehaviour networkBehaviour = target as NetworkBehaviour;
                 if (networkBehaviour != null)
                 {
+                    EditorGUILayout.Space();
                     EditorGUILayout.LabelField("Sync Settings", EditorStyles.boldLabel);
 
                     // syncMode
