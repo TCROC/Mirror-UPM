@@ -8,7 +8,14 @@ namespace Mirror.Examples.Chat
         [Header("Chat GUI")]
         public ChatWindow chatWindow;
 
+        // Set by UI element UsernameInput OnValueChanged
         public string PlayerName { get; set; }
+
+        // Called by UI element NetworkAddressInput.OnValueChanged
+        public void SetHostname(string hostname)
+        {
+            networkAddress = hostname;
+        }
 
         public struct CreatePlayerMessage : NetworkMessage
         {
