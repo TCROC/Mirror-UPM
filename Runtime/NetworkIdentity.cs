@@ -114,60 +114,42 @@ namespace Mirror
     {
         NetworkBehaviour[] networkBehavioursCache;
 
-        /// <summary>
-        /// Returns true if running as a client and this object was spawned by a server.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        ///     <b>IMPORTANT:</b> checking NetworkClient.active means that isClient is false in OnDestroy:
-        /// </para>
-        /// <c>
-        ///     public bool isClient => NetworkClient.active &amp;&amp; netId != 0 &amp;&amp; !serverOnly;
-        /// </c>
-        /// <para>
-        ///     but we need it in OnDestroy, e.g. when saving skillbars on quit. this
-        ///     works fine if we keep the UNET way of setting isClient manually.
-        /// </para>
-        /// <para>
-        ///     => fixes <see href="https://github.com/vis2k/Mirror/issues/1475"/>
-        /// </para>
-        /// </remarks>
+        /// <summary>Returns true if running as a client and this object was spawned by a server.</summary>
+        //
+        // IMPORTANT:
+        //   OnStartClient sets it to true. we NEVER set it to false after.
+        //   otherwise components like Skillbars couldn't use OnDestroy()
+        //   for saving, etc. since isClient may have been reset before
+        //   OnDestroy was called.
+        //
+        //   we also DO NOT make it dependent on NetworkClient.active or similar.
+        //   we set it, then never change it. that's the user's expectation too.
+        //
+        //   => fixes https://github.com/vis2k/Mirror/issues/1475
         public bool isClient { get; internal set; }
 
-        /// <summary>
-        /// Returns true if NetworkServer.active and server is not stopped.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        ///    <b>IMPORTANT:</b> checking NetworkServer.active means that isServer is false in OnDestroy:
-        /// </para>
-        /// <c>
-        ///     public bool isServer => NetworkServer.active &amp;&amp; netId != 0;
-        /// </c>
-        /// <para>
-        ///     but we need it in OnDestroy, e.g. when saving players on quit. this
-        ///     works fine if we keep the UNET way of setting isServer manually.
-        /// </para>
-        /// <para>
-        ///     => fixes <see href="https://github.com/vis2k/Mirror/issues/1484"/>
-        /// </para>
-        /// </remarks>
+        /// <summary>Returns true if NetworkServer.active and server is not stopped.</summary>
+        //
+        // IMPORTANT:
+        //   OnStartServer sets it to true. we NEVER set it to false after.
+        //   otherwise components like Skillbars couldn't use OnDestroy()
+        //   for saving, etc. since isServer may have been reset before
+        //   OnDestroy was called.
+        //
+        //   we also DO NOT make it dependent on NetworkServer.active or similar.
+        //   we set it, then never change it. that's the user's expectation too.
+        //
+        //   => fixes https://github.com/vis2k/Mirror/issues/1484
+        //   => fixes https://github.com/vis2k/Mirror/issues/2533
         public bool isServer { get; internal set; }
 
-        /// <summary>
-        /// This returns true if this object is the one that represents the player on the local machine.
-        /// <para>This is set when the server has spawned an object for this particular client.</para>
-        /// </summary>
+        /// <summary>Return true if this object represents the player on the local machine.</summary>
         public bool isLocalPlayer => ClientScene.localPlayer == this;
 
-        /// <summary>
-        /// True if this object only exists on the server
-        /// </summary>
+        /// <summary>True if this object only exists on the server</summary>
         public bool isServerOnly => isServer && !isClient;
 
-        /// <summary>
-        /// True if this object exists on a client that is not also acting as a server
-        /// </summary>
+        /// <summary>True if this object exists on a client that is not also acting as a server.</summary>
         public bool isClientOnly => isClient && !isServer;
 
         /// <summary>
@@ -917,7 +899,6 @@ namespace Mirror
                 {
                     Debug.LogError("Exception in OnStopClient:" + e.Message + " " + e.StackTrace);
                 }
-                isServer = false;
             }
         }
 
