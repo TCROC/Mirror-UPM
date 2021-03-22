@@ -873,18 +873,29 @@ namespace Mirror
             }
         }
 
-        static void UpdateScene()
+        void UpdateScene()
         {
-            if (singleton != null && loadingSceneAsync != null && loadingSceneAsync.isDone)
+            if (loadingSceneAsync != null && loadingSceneAsync.isDone)
             {
                 // Debug.Log("ClientChangeScene done readyCon:" + clientReadyConnection);
-                singleton.FinishLoadScene();
-                loadingSceneAsync.allowSceneActivation = true;
-                loadingSceneAsync = null;
+
+                // try-finally to guarantee loadingSceneAsync being cleared.
+                // fixes https://github.com/vis2k/Mirror/issues/2517 where if
+                // FinishLoadScene throws an exception, loadingSceneAsync would
+                // never be cleared and this code would run every Update.
+                try
+                {
+                    FinishLoadScene();
+                }
+                finally
+                {
+                    loadingSceneAsync.allowSceneActivation = true;
+                    loadingSceneAsync = null;
+                }
             }
         }
 
-        public void FinishLoadScene()
+        protected void FinishLoadScene()
         {
             // NOTE: this cannot use NetworkClient.allClients[0] - that client may be for a completely different purpose.
 
