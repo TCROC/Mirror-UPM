@@ -1,3 +1,15 @@
+# New Repository
+
+https://github.com/TCROC/Mirror-Submodule
+
+## Reasons
+
+1. Unity had a TOS update for use of UPM and I'm not exactly sure what that means for open source projects.  Submodules feel safer.  More can be read here. [here](https://forum.unity.com/threads/updates-to-our-terms-of-service-and-new-package-guidelines.999940/).
+
+2. I could not get UPM get to work properly in Unity 2020 LTS.  The git submodules work perfectly tho!
+
+I'll be archiving this repository, but feel free to use the other one! :)
+
 # Mirror-UPM
 
 This repo runs nightly and formats Mirror releases for UPM.  The Mirror repo can be found here: https://github.com/vis2k/Mirror.
